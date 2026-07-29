@@ -73,6 +73,9 @@ const baseQueryWithReauth: BaseQueryFn<
 export const baseApi = createApi({
   reducerPath: 'api',
   baseQuery: baseQueryWithReauth,
+  // Les onglets restent montés : sans refetch, le catalogue reste figé jusqu’au logout.
+  refetchOnFocus: true,
+  refetchOnReconnect: true,
   tagTypes: [
     'Me',
     'MyArtist',

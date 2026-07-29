@@ -9,14 +9,9 @@ import {
   View,
 } from 'react-native';
 
+import { AddToPlaylistModal } from '@/components/library/AddToPlaylistModal';
 import { himbaColors, homeMedia } from '@/constants/theme';
-import { getErrorMessage } from '@/lib/errors/apiError';
 import type { Track } from '@/schemas/tracks';
-import {
-  useAddPlaylistTrackMutation,
-  useCreatePlaylistMutation,
-  useGetPlaylistsQuery,
-} from '@/store/api/libraryApi';
 
 const GENRE_FILTERS = [
   { id: 'all', label: 'Tout' },
@@ -44,9 +39,7 @@ export function ExploreTab({
   const [query, setQuery] = useState('');
   const [genreFilter, setGenreFilter] = useState<GenreFilterId>('all');
   const [feedback, setFeedback] = useState<string | null>(null);
-  const { data: playlistsData } = useGetPlaylistsQuery();
-  const [createPlaylist] = useCreatePlaylistMutation();
-  const [addPlaylistTrack] = useAddPlaylistTrackMutation();
+  const [playlistTrack, setPlaylistTrack] = useState<Track | null>(null);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -71,28 +64,21 @@ export function ExploreTab({
     });
   }, [genreFilter, query, tracks]);
 
-  const onAddToPlaylist = async (track: Track) => {
-    setFeedback(null);
-    try {
-      let playlistId = playlistsData?.items[0]?.id;
-      if (!playlistId) {
-        const created = await createPlaylist({
-          name: 'Découvertes Explorer',
-        }).unwrap();
-        playlistId = created.id;
-      }
-      await addPlaylistTrack({
-        playlistId,
-        trackId: track.id,
-      }).unwrap();
-      setFeedback(`« ${track.title} » ajouté à la playlist`);
-    } catch (e) {
-      setFeedback(getErrorMessage(e, 'Playlist impossible'));
-    }
-  };
-
   return (
     <View className="gap-5">
+      <AddToPlaylistModal
+        track={playlistTrack}
+        visible={playlistTrack != null}
+        onClose={() => setPlaylistTrack(null)}
+        onAdded={(playlistName) => {
+          setFeedback(
+            playlistTrack
+              ? `« ${playlistTrack.title} » → ${playlistName}`
+              : `Ajouté à ${playlistName}`,
+          );
+        }}
+      />
+
       <View className="gap-2">
         <Text style={styles.eyebrow}>TROUVER TON SON</Text>
         <Text style={styles.headline}>Explorer</Text>
@@ -163,7 +149,8 @@ export function ExploreTab({
             track={track}
             onPlay={() => onPlayTrack?.(track)}
             onAdd={() => {
-              void onAddToPlaylist(track);
+              setFeedback(null);
+              setPlaylistTrack(track);
             }}
           />
         ))}

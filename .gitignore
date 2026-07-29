@@ -43,4 +43,10 @@ example
 /ios
 /android
 
+# EAS / store artifacts (ne jamais zipper node_modules)
+*.aab
+*.apk
+*.ipa
+/build/
+
 /.cursor

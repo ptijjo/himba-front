@@ -1,7 +1,14 @@
 import { Image } from 'expo-image';
-import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { HimbaWordmark } from '@/components/brand/HimbaWordmark';
@@ -13,7 +20,7 @@ import { SelectionSection } from '@/components/home/SelectionSection';
 import { AtmosphereBackdrop } from '@/components/media/AtmosphereBackdrop';
 import { MiniPlayer } from '@/components/player/MiniPlayer';
 import { TrackRow } from '@/components/tracks/TrackRow';
-import { homeMedia } from '@/constants/theme';
+import { himbaColors, homeMedia } from '@/constants/theme';
 import { usePlayTrack } from '@/hooks/usePlayTrack';
 import { useAppSelector } from '@/store';
 import { useGetFollowsQuery } from '@/store/api/libraryApi';
@@ -27,6 +34,9 @@ type HomeTabId = 'pour-toi' | 'suivis' | 'explorer';
 /**
  * Accueil — Pour toi / Suivis / Explorer (onglet principal).
  * Fond = cover du slide « À la une » actif.
+ *
+ * Le catalogue est partagé entre appareils : on refetch au focus onglet +
+ * pull-to-refresh, sinon le cache RTK (écran toujours monté) masque les nouveautés.
  */
 export default function HomeScreen() {
   const user = useAppSelector((s) => s.auth.user);
@@ -35,6 +45,7 @@ export default function HomeScreen() {
   const [heroBackdropUri, setHeroBackdropUri] = useState<string>(
     homeMedia.heroConcert,
   );
+  const [refreshing, setRefreshing] = useState(false);
   const { playTrack } = usePlayTrack();
 
   useEffect(() => {
@@ -47,23 +58,71 @@ export default function HomeScreen() {
     }
   }, [params.tab]);
 
-  const { data: recommendations = [], isLoading: loadingRecos } =
-    useGetRecommendationsQuery(undefined, { skip: tab !== 'pour-toi' });
-  const { data: tracksPage, isLoading: loadingTracks } = useGetTracksQuery({
-    limit: 40,
+  const {
+    data: recommendations = [],
+    isLoading: loadingRecos,
+    refetch: refetchRecos,
+  } = useGetRecommendationsQuery(undefined, {
+    skip: tab !== 'pour-toi',
+    refetchOnMountOrArgChange: true,
   });
-  const { data: follows = [], isLoading: loadingFollows } = useGetFollowsQuery(
-    undefined,
-    { skip: tab !== 'suivis' },
+  const {
+    data: tracksPage,
+    isLoading: loadingTracks,
+    refetch: refetchTracks,
+  } = useGetTracksQuery(
+    {
+      limit: 40,
+    },
+    { refetchOnMountOrArgChange: true },
   );
+  const {
+    data: follows = [],
+    isLoading: loadingFollows,
+    refetch: refetchFollows,
+  } = useGetFollowsQuery(undefined, {
+    skip: tab !== 'suivis',
+    refetchOnMountOrArgChange: true,
+  });
 
   const catalog = tracksPage?.items ?? [];
+  // Hero / sélection : reco si dispo ; liste « Nouveautés » = catalogue frais.
   const selectionTracks =
     tab === 'pour-toi' && recommendations.length > 0
       ? recommendations
       : catalog;
 
   const showCoverBackdrop = tab === 'pour-toi';
+
+  // 1. Retour sur l’onglet Accueil → recharger catalogue (et reco / suivis selon onglet).
+  useFocusEffect(
+    useCallback(() => {
+      void refetchTracks();
+      if (tab === 'pour-toi') {
+        void refetchRecos();
+      }
+      if (tab === 'suivis') {
+        void refetchFollows();
+      }
+    }, [tab, refetchTracks, refetchRecos, refetchFollows]),
+  );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      // 2. Pull-to-refresh : forcer un aller-retour API même si le cache est « frais ».
+      const jobs: Array<Promise<unknown>> = [refetchTracks()];
+      if (tab === 'pour-toi') {
+        jobs.push(refetchRecos());
+      }
+      if (tab === 'suivis') {
+        jobs.push(refetchFollows());
+      }
+      await Promise.all(jobs);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [tab, refetchTracks, refetchRecos, refetchFollows]);
 
   return (
     <SafeAreaView className="flex-1 bg-himba-night" edges={['top']}>
@@ -79,6 +138,16 @@ export default function HomeScreen() {
         contentContainerClassName="gap-5 px-5 pb-40 pt-2"
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              void onRefresh();
+            }}
+            tintColor={himbaColors.ember}
+            colors={[himbaColors.ember]}
+          />
+        }
       >
         <View className="flex-row items-center justify-between">
           <HimbaWordmark compact />
@@ -122,9 +191,9 @@ export default function HomeScreen() {
             />
             <View className="gap-2">
               <Text className="text-lg font-bold text-himba-ink">
-                Suggestions
+                Nouveautés
               </Text>
-              {selectionTracks.map((track) => (
+              {catalog.map((track) => (
                 <TrackRow
                   key={track.id}
                   track={track}
@@ -133,7 +202,7 @@ export default function HomeScreen() {
                   }}
                 />
               ))}
-              {loadingRecos || loadingTracks ? (
+              {loadingTracks ? (
                 <Text className="text-himba-mist">Chargement…</Text>
               ) : null}
             </View>

@@ -1,6 +1,8 @@
 import {
   studioTrackSchema,
   toPrice,
+  toUpdateTrackPrice,
+  updateTrackSchema,
 } from '@/schemas/studio';
 
 const baseAudio = {
@@ -88,6 +90,43 @@ describe('studioTrackSchema', () => {
     expect(parsed.success).toBe(true);
     if (parsed.success) {
       expect(toPrice(parsed.data)).toBe(1.99);
+    }
+  });
+});
+
+describe('updateTrackSchema', () => {
+  it('accepte une édition gratuite sans audio', () => {
+    const parsed = updateTrackSchema.safeParse({
+      title: 'Rebelle remix',
+      genre: 'AFRO',
+      pricing: 'free',
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(toUpdateTrackPrice(parsed.data)).toBeNull();
+    }
+  });
+
+  it('exige un prix si payant', () => {
+    const parsed = updateTrackSchema.safeParse({
+      title: 'Rebelle',
+      genre: 'RAP',
+      pricing: 'paid',
+      priceEuros: '',
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it('convertit le prix payant', () => {
+    const parsed = updateTrackSchema.safeParse({
+      title: 'Rebelle',
+      genre: 'RAP',
+      pricing: 'paid',
+      priceEuros: '2.50',
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(toUpdateTrackPrice(parsed.data)).toBe(2.5);
     }
   });
 });

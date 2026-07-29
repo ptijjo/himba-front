@@ -17,6 +17,15 @@ import { baseApi } from '@/store/api/baseApi';
 
 export type CreateTrackFormData = FormData;
 
+/** Corps PATCH /tracks/:id — UpdateTrackDto (JSON). */
+export type UpdateTrackBody = {
+  title?: string;
+  genre?: string;
+  /** null = gratuit */
+  price?: number | null;
+  durationMs?: number;
+};
+
 export const tracksApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
     getTracks: build.query<
@@ -62,6 +71,7 @@ export const tracksApi = baseApi.injectEndpoints({
     }),
     getTrack: build.query<Track, string>({
       query: (id) => `/tracks/${id}`,
+      providesTags: (_result, _error, id) => [{ type: 'Tracks', id }],
       transformResponse: (response: unknown) => {
         const parsed = trackSchema.safeParse(response);
         if (!parsed.success) {
@@ -99,7 +109,7 @@ export const tracksApi = baseApi.injectEndpoints({
         method: 'POST',
         body: formData,
       }),
-      invalidatesTags: ['Tracks', 'Albums'],
+      invalidatesTags: ['Tracks', 'Albums', 'Recommendations'],
       transformResponse: (response: unknown) => {
         const parsed = trackSchema.safeParse(response);
         if (!parsed.success) {
@@ -107,6 +117,33 @@ export const tracksApi = baseApi.injectEndpoints({
         }
         return parsed.data;
       },
+    }),
+    /**
+     * PATCH /tracks/:id — JSON UpdateTrackDto (owner ARTIST ou ADMIN).
+     * Pas de remplacement audio/cover sur cette route API.
+     */
+    updateTrack: build.mutation<Track, { id: string; body: UpdateTrackBody }>({
+      query: ({ id, body }) => ({
+        url: `/tracks/${id}`,
+        method: 'PATCH',
+        body,
+      }),
+      invalidatesTags: ['Tracks', 'Albums', 'Recommendations'],
+      transformResponse: (response: unknown) => {
+        const parsed = trackSchema.safeParse(response);
+        if (!parsed.success) {
+          throw new Error('Titre modifié invalide');
+        }
+        return parsed.data;
+      },
+    }),
+    /** DELETE /tracks/:id — 204, owner ARTIST ou ADMIN. */
+    deleteTrack: build.mutation<void, string>({
+      query: (id) => ({
+        url: `/tracks/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Tracks', 'Albums', 'Recommendations'],
     }),
     recordPlay: build.mutation<
       unknown,
@@ -129,5 +166,7 @@ export const {
   useLazyGetStreamUrlQuery,
   useLazyGetDownloadUrlQuery,
   useCreateTrackMutation,
+  useUpdateTrackMutation,
+  useDeleteTrackMutation,
   useRecordPlayMutation,
 } = tracksApi;

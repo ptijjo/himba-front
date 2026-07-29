@@ -26,6 +26,11 @@ describe('getApiBaseUrl', () => {
     expect(getApiBaseUrl()).toBe('http://10.0.0.5:8989');
   });
 
+  it('conserve l’URL API production HTTPS', () => {
+    process.env.EXPO_PUBLIC_API_URL = 'https://himba.cellulenoire.fr';
+    expect(getApiBaseUrl()).toBe('https://himba.cellulenoire.fr');
+  });
+
   it('extrait le host Expo', () => {
     expect(resolveExpoDevHost()).toBe('192.168.1.119');
   });

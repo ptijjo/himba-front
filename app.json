@@ -1,24 +1,31 @@
 {
   "expo": {
-    "name": "himba",
+    "name": "Himba",
     "slug": "himba",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/logo-ptah-labs.jpg",
     "scheme": "himba",
     "userInterfaceStyle": "dark",
+    "owner": "ptijjo",
     "ios": {
       "icon": "./assets/images/logo-ptah-labs.jpg",
+      "bundleIdentifier": "fr.cellulenoire.himba",
       "config": {
         "usesNonExemptEncryption": false
       }
     },
     "android": {
+      "package": "fr.cellulenoire.himba",
+      "versionCode": 2,
       "adaptiveIcon": {
         "backgroundColor": "#0B0618",
         "foregroundImage": "./assets/images/logo-ptah-labs.jpg"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -45,11 +52,18 @@
           "cameraPermission": false,
           "microphonePermission": false
         }
-      ]
+      ],
+      "expo-document-picker"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "3b64aa6a-1789-4529-a8f6-9231feb5b38f"
+      }
     }
   }
 }

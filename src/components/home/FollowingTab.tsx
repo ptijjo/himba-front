@@ -9,16 +9,14 @@ import {
   View,
 } from 'react-native';
 
+import { AddToPlaylistModal } from '@/components/library/AddToPlaylistModal';
 import { himbaColors, homeMedia } from '@/constants/theme';
 import { getErrorMessage } from '@/lib/errors/apiError';
 import type { Follow } from '@/schemas/library';
 import type { Track } from '@/schemas/tracks';
 import {
   useAddFavoriteMutation,
-  useAddPlaylistTrackMutation,
-  useCreatePlaylistMutation,
   useGetFavoritesQuery,
-  useGetPlaylistsQuery,
   useRemoveFavoriteMutation,
 } from '@/store/api/libraryApi';
 
@@ -45,6 +43,13 @@ export function FollowingTab({
 }: FollowingTabProps) {
   const { width: windowWidth } = useWindowDimensions();
   const cardWidth = Math.min(windowWidth - 56, 340);
+  const [activeArtistId, setActiveArtistId] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [playlistTrack, setPlaylistTrack] = useState<Track | null>(null);
+
+  const { data: favorites = [] } = useGetFavoritesQuery();
+  const [addFavorite] = useAddFavoriteMutation();
+  const [removeFavorite] = useRemoveFavoriteMutation();
 
   const artistReleases = useMemo<ArtistRelease[]>(() => {
     return follows.map((follow) => {
@@ -75,15 +80,6 @@ export function FollowingTab({
     return filtered.length > 0 ? filtered : releasesWithTrack;
   }, [activeArtistId, releasesWithTrack]);
 
-  const { data: favorites = [] } = useGetFavoritesQuery();
-  const { data: playlistsData } = useGetPlaylistsQuery();
-  const [addFavorite] = useAddFavoriteMutation();
-  const [removeFavorite] = useRemoveFavoriteMutation();
-  const [createPlaylist] = useCreatePlaylistMutation();
-  const [addPlaylistTrack] = useAddPlaylistTrackMutation();
-  const [feedback, setFeedback] = useState<string | null>(null);
-  const [activeArtistId, setActiveArtistId] = useState<string | null>(null);
-
   const onToggleFavorite = async (track: Track) => {
     setFeedback(null);
     const isFavorite = favorites.some((f) => f.trackId === track.id);
@@ -99,28 +95,16 @@ export function FollowingTab({
     }
   };
 
-  const onAddToPlaylist = async (track: Track) => {
-    setFeedback(null);
-    try {
-      let playlistId = playlistsData?.items[0]?.id;
-      if (!playlistId) {
-        const created = await createPlaylist({
-          name: 'Depuis mes suivis',
-        }).unwrap();
-        playlistId = created.id;
-      }
-      await addPlaylistTrack({
-        playlistId,
-        trackId: track.id,
-      }).unwrap();
-      setFeedback('Ajouté à la playlist');
-    } catch (e) {
-      setFeedback(getErrorMessage(e, 'Playlist impossible'));
-    }
-  };
-
   return (
     <View className="gap-5">
+      <AddToPlaylistModal
+        track={playlistTrack}
+        visible={playlistTrack != null}
+        onClose={() => setPlaylistTrack(null)}
+        onAdded={(playlistName) => {
+          setFeedback(`Ajouté à « ${playlistName} »`);
+        }}
+      />
       <View className="gap-2">
         <Text style={styles.eyebrow}>TON RÉSEAU</Text>
         <Text style={styles.headline}>Les artistes que tu suis</Text>
@@ -274,7 +258,8 @@ export function FollowingTab({
                     </Pressable>
                     <Pressable
                       onPress={() => {
-                        void onAddToPlaylist(track);
+                        setFeedback(null);
+                        setPlaylistTrack(track);
                       }}
                       accessibilityRole="button"
                       accessibilityLabel="Ajouter à une playlist"

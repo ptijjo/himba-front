@@ -53,7 +53,10 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "test": "jest",
-    "test:cov": "jest --coverage"
+    "test:cov": "jest --coverage",
+    "build:android:preview": "eas build --platform android --profile preview",
+    "build:android": "eas build --platform android --profile production",
+    "submit:android": "eas submit --platform android --profile production --latest"
   },
   "private": true
 }

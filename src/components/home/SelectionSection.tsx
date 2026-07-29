@@ -2,18 +2,16 @@ import { Image } from 'expo-image';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { AddToPlaylistModal } from '@/components/library/AddToPlaylistModal';
 import { himbaColors, homeMedia } from '@/constants/theme';
 import { getErrorMessage } from '@/lib/errors/apiError';
 import type { Track } from '@/schemas/tracks';
 import { useGetArtistQuery } from '@/store/api/artistsApi';
 import {
   useAddFavoriteMutation,
-  useAddPlaylistTrackMutation,
-  useCreatePlaylistMutation,
   useFollowArtistMutation,
   useGetFavoritesQuery,
   useGetFollowsQuery,
-  useGetPlaylistsQuery,
   useRemoveFavoriteMutation,
   useUnfollowArtistMutation,
 } from '@/store/api/libraryApi';
@@ -39,15 +37,13 @@ export function SelectionSection({
   });
   const { data: follows = [] } = useGetFollowsQuery();
   const { data: favorites = [] } = useGetFavoritesQuery();
-  const { data: playlistsData } = useGetPlaylistsQuery();
   const [followArtist] = useFollowArtistMutation();
   const [unfollowArtist] = useUnfollowArtistMutation();
   const [addFavorite] = useAddFavoriteMutation();
   const [removeFavorite] = useRemoveFavoriteMutation();
-  const [createPlaylist] = useCreatePlaylistMutation();
-  const [addPlaylistTrack] = useAddPlaylistTrackMutation();
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionOk, setActionOk] = useState<string | null>(null);
+  const [playlistOpen, setPlaylistOpen] = useState(false);
 
   const isFollowing = useMemo(
     () => Boolean(artistId && follows.some((f) => f.artistId === artistId)),
@@ -107,32 +103,25 @@ export function SelectionSection({
     }
   };
 
-  const onAddToPlaylist = async () => {
+  const onOpenPlaylist = () => {
     if (!featured) {
       return;
     }
     setActionError(null);
     setActionOk(null);
-    try {
-      let playlistId = playlistsData?.items[0]?.id;
-      if (!playlistId) {
-        const created = await createPlaylist({
-          name: `Découverte ${artistName}`,
-        }).unwrap();
-        playlistId = created.id;
-      }
-      await addPlaylistTrack({
-        playlistId,
-        trackId: featured.id,
-      }).unwrap();
-      setActionOk('Ajouté à la playlist');
-    } catch (e) {
-      setActionError(getErrorMessage(e, 'Playlist impossible'));
-    }
+    setPlaylistOpen(true);
   };
 
   return (
     <View className="gap-3">
+      <AddToPlaylistModal
+        track={featured}
+        visible={playlistOpen && featured != null}
+        onClose={() => setPlaylistOpen(false)}
+        onAdded={(playlistName) => {
+          setActionOk(`Ajouté à « ${playlistName} »`);
+        }}
+      />
       <Text className="text-[11px] font-semibold tracking-[2px] text-himba-mist">
         PROPOSITION ARTISTE
       </Text>
@@ -230,9 +219,7 @@ export function SelectionSection({
             <ActionButton
               label="＋"
               accessibilityLabel="Ajouter à une playlist"
-              onPress={() => {
-                void onAddToPlaylist();
-              }}
+              onPress={onOpenPlaylist}
               disabled={!featured}
             />
           </View>

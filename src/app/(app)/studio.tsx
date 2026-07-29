@@ -18,6 +18,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { HimbaLogo } from '@/components/brand/HimbaWordmark';
+import { StudioLibrarySection } from '@/components/studio/StudioLibrarySection';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { himbaColors } from '@/constants/theme';
@@ -41,9 +42,10 @@ import { useGetMyArtistQuery } from '@/store/api/artistsApi';
 import {
   useCreateTrackMutation,
   useGetTrackGenresQuery,
+  useGetTracksQuery,
 } from '@/store/api/tracksApi';
 
-type StudioPanel = 'track' | 'album';
+type StudioPanel = 'track' | 'album' | 'library';
 
 /**
  * Studio Himba — même route, deux panneaux :
@@ -77,10 +79,20 @@ function StudioShell({
     { artistId, limit: 50 },
     { skip: !artistId },
   );
+  // Catalogue filtré côté client (GET /tracks n’a pas de filtre artistId).
+  const { data: tracksPage, isLoading: loadingTracks } = useGetTracksQuery(
+    { limit: 50 },
+    { skip: !artistId },
+  );
 
   const [panel, setPanel] = useState<StudioPanel>('track');
   /** Après création d’album → pré-sélection sur le formulaire titre. */
   const [pendingAlbumId, setPendingAlbumId] = useState<string | null>(null);
+
+  const myTracks =
+    artistId && tracksPage?.items
+      ? tracksPage.items.filter((t) => t.artistId === artistId)
+      : [];
 
   return (
     <SafeAreaView className="flex-1 bg-himba-night" edges={['top']}>
@@ -91,6 +103,24 @@ function StudioShell({
         showsVerticalScrollIndicator={false}
       >
         <StudioHeader username={username} avatarUrl={avatarUrl} />
+
+        <View className="flex-row flex-wrap gap-2">
+          <ChoiceChip
+            label="Publier"
+            selected={panel === 'track'}
+            onPress={() => setPanel('track')}
+          />
+          <ChoiceChip
+            label="Album"
+            selected={panel === 'album'}
+            onPress={() => setPanel('album')}
+          />
+          <ChoiceChip
+            label="Gérer"
+            selected={panel === 'library'}
+            onPress={() => setPanel('library')}
+          />
+        </View>
 
         {loadingArtist ? (
           <ActivityIndicator color={himbaColors.ember} />
@@ -113,7 +143,9 @@ function StudioShell({
             onPendingAlbumConsumed={() => setPendingAlbumId(null)}
             onOpenCreateAlbum={() => setPanel('album')}
           />
-        ) : (
+        ) : null}
+
+        {panel === 'album' ? (
           <AlbumCreatePanel
             hasArtist={Boolean(myArtist)}
             onCancel={() => setPanel('track')}
@@ -122,7 +154,15 @@ function StudioShell({
               setPanel('track');
             }}
           />
-        )}
+        ) : null}
+
+        {panel === 'library' ? (
+          <StudioLibrarySection
+            albums={albumsData?.items ?? []}
+            tracks={myTracks}
+            loading={loadingAlbums || loadingTracks}
+          />
+        ) : null}
 
         <Pressable
           onPress={() => router.back()}

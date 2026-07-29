@@ -78,11 +78,53 @@ export const studioTrackSchema = z
     }
   });
 
+/**
+ * Formulaire édition titre — UpdateTrackDto (JSON, pas de remplacement audio).
+ */
+export const updateTrackSchema = z
+  .object({
+    title: z.string().min(1, 'Titre requis').max(200),
+    genre: trackGenreSchema,
+    pricing: trackPricingSchema,
+    priceEuros: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.pricing !== 'paid') {
+      return;
+    }
+    const raw = data.priceEuros?.trim() ?? '';
+    if (!raw) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Indique un prix',
+        path: ['priceEuros'],
+      });
+      return;
+    }
+    const euros = Number(raw.replace(',', '.'));
+    if (!Number.isFinite(euros) || euros <= 0) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Prix invalide',
+        path: ['priceEuros'],
+      });
+    }
+  });
+
 export type StudioTrackValues = z.infer<typeof studioTrackSchema>;
+export type UpdateTrackValues = z.infer<typeof updateTrackSchema>;
 export type TrackPricing = z.infer<typeof trackPricingSchema>;
 export type AudioFileValue = z.infer<typeof audioFileSchema>;
 
 export function toPrice(values: StudioTrackValues): number | null {
+  if (values.pricing === 'free') {
+    return null;
+  }
+  const euros = Number((values.priceEuros ?? '').replace(',', '.'));
+  return Math.round(euros * 100) / 100;
+}
+
+export function toUpdateTrackPrice(values: UpdateTrackValues): number | null {
   if (values.pricing === 'free') {
     return null;
   }

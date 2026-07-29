@@ -2,6 +2,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import { useDispatch, useSelector, type TypedUseSelectorHook } from 'react-redux';
 
 import { baseApi } from '@/store/api/baseApi';
+import { setupRtkListeners } from '@/store/setupRtkListeners';
 import { authReducer } from '@/store/slices/authSlice';
 import { playerReducer } from '@/store/slices/playerSlice';
 
@@ -22,6 +23,9 @@ export const store = configureStore({
       serializableCheck: false,
     }).concat(baseApi.middleware),
 });
+
+// Catalogue partagé : refetch quand l’app revient au premier plan (AppState).
+setupRtkListeners(store.dispatch);
 
 export type RootState = ReturnType<typeof store.getState>;
 export type AppDispatch = typeof store.dispatch;

@@ -19,7 +19,7 @@ export function getErrorMessage(error: unknown, fallback = 'Une erreur est surve
 
   // RTK Query : échec réseau (API down, mauvaise IP, téléphone → localhost)
   if (maybe.status === 'FETCH_ERROR' || maybe.status === 'TIMEOUT_ERROR') {
-    return 'Serveur injoignable. Vérifie que l’API tourne et que EXPO_PUBLIC_API_URL pointe vers ton PC (pas localhost sur téléphone).';
+    return 'Serveur injoignable. Vérifie ta connexion et que l’API Himba est accessible.';
   }
 
   const raw = maybe.data?.message;
