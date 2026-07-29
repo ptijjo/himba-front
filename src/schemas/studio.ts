@@ -4,7 +4,7 @@ import { trackGenreSchema } from '@/schemas/genres';
 
 export const trackPricingSchema = z.enum(['free', 'paid']);
 
-/** Fichier audio local (DocumentPicker) — M4A / AAC / MP3 (API sniffe le conteneur). */
+/** Fichier audio local (DocumentPicker) — M4A AAC-LC recommandé (API sniffe le conteneur). */
 export const audioFileSchema = z.object({
   uri: z.string().min(1),
   name: z.string().min(1),
@@ -34,7 +34,7 @@ export const studioTrackSchema = z
     if (!data.audio) {
       ctx.addIssue({
         code: 'custom',
-        message: 'Fichier audio M4A / AAC / MP3 requis',
+        message: 'Fichier audio AAC / M4A requis',
         path: ['audio'],
       });
     }
@@ -132,14 +132,11 @@ export function toUpdateTrackPrice(values: UpdateTrackValues): number | null {
   return Math.round(euros * 100) / 100;
 }
 
-/** Aligné sur himba-api `ALLOWED_AUDIO_MIME` (+ sniffe magic bytes côté serveur). */
 const ALLOWED_AUDIO_MIME = new Set([
   'audio/aac',
   'audio/mp4',
   'audio/x-m4a',
   'audio/m4a',
-  'audio/mpeg',
-  'audio/mp3',
 ]);
 
 export function isAllowedAudioMime(mime: string | undefined): boolean {
@@ -155,29 +152,6 @@ export function isAllowedAudioName(name: string): boolean {
   return (
     lower.endsWith('.aac') ||
     lower.endsWith('.m4a') ||
-    lower.endsWith('.mp4') ||
-    lower.endsWith('.mp3')
+    lower.endsWith('.mp4')
   );
-}
-
-/** MIME multipart à envoyer — miroir normalisations API / storage. */
-export function normalizeAudioUploadMime(
-  name: string,
-  mime: string | undefined,
-): string {
-  const lower = name.toLowerCase();
-  if (lower.endsWith('.m4a') || lower.endsWith('.mp4')) {
-    return 'audio/mp4';
-  }
-  if (lower.endsWith('.aac')) {
-    return 'audio/aac';
-  }
-  if (lower.endsWith('.mp3')) {
-    return 'audio/mpeg';
-  }
-  const normalized = (mime ?? '').toLowerCase();
-  if (ALLOWED_AUDIO_MIME.has(normalized)) {
-    return normalized;
-  }
-  return 'audio/mp4';
 }
