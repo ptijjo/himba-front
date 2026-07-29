@@ -1,0 +1,30 @@
+import { configureStore } from '@reduxjs/toolkit';
+import { useDispatch, useSelector, type TypedUseSelectorHook } from 'react-redux';
+
+import { baseApi } from '@/store/api/baseApi';
+import { authReducer } from '@/store/slices/authSlice';
+import { playerReducer } from '@/store/slices/playerSlice';
+
+import '@/store/api/albumsApi';
+import '@/store/api/artistsApi';
+import '@/store/api/authApi';
+import '@/store/api/libraryApi';
+import '@/store/api/tracksApi';
+
+export const store = configureStore({
+  reducer: {
+    auth: authReducer,
+    player: playerReducer,
+    [baseApi.reducerPath]: baseApi.reducer,
+  },
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      serializableCheck: false,
+    }).concat(baseApi.middleware),
+});
+
+export type RootState = ReturnType<typeof store.getState>;
+export type AppDispatch = typeof store.dispatch;
+
+export const useAppDispatch: () => AppDispatch = useDispatch;
+export const useAppSelector: TypedUseSelectorHook<RootState> = useSelector;

@@ -1,0 +1,55 @@
+{
+  "expo": {
+    "name": "himba",
+    "slug": "himba",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/logo-ptah-labs.jpg",
+    "scheme": "himba",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "icon": "./assets/images/logo-ptah-labs.jpg",
+      "config": {
+        "usesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0B0618",
+        "foregroundImage": "./assets/images/logo-ptah-labs.jpg"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/logo-ptah-labs.jpg"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0B0618",
+          "image": "./assets/images/logo-ptah-labs.jpg",
+          "imageWidth": 120
+        }
+      ],
+      "expo-secure-store",
+      "expo-font",
+      "expo-audio",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Himba a besoin d’accéder à tes photos pour la photo de profil.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}

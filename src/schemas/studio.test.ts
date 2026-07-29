@@ -1,0 +1,93 @@
+import {
+  studioTrackSchema,
+  toPrice,
+} from '@/schemas/studio';
+
+const baseAudio = {
+  uri: 'file:///tmp/song.m4a',
+  name: 'song.m4a',
+  mimeType: 'audio/mp4',
+};
+
+describe('studioTrackSchema', () => {
+  it('accepte un titre gratuit avec audio et genre', () => {
+    const parsed = studioTrackSchema.safeParse({
+      title: 'Rebelle',
+      artistName: 'FOFO',
+      description: 'Une histoire',
+      genre: 'AFRO',
+      albumMode: 'none',
+      pricing: 'free',
+      audio: baseAudio,
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(toPrice(parsed.data)).toBeNull();
+    }
+  });
+
+  it('refuse sans fichier audio', () => {
+    const parsed = studioTrackSchema.safeParse({
+      title: 'Rebelle',
+      artistName: 'FOFO',
+      genre: 'RAP',
+      albumMode: 'none',
+      pricing: 'free',
+      audio: null,
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it('exige un albumId en mode existing', () => {
+    const parsed = studioTrackSchema.safeParse({
+      title: 'Rebelle',
+      artistName: 'FOFO',
+      genre: 'RAP',
+      albumMode: 'existing',
+      pricing: 'free',
+      audio: baseAudio,
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it('refuse le mode new (création album hors formulaire titre)', () => {
+    const parsed = studioTrackSchema.safeParse({
+      title: 'Rebelle',
+      artistName: 'FOFO',
+      genre: 'ZOUK',
+      albumMode: 'new',
+      pricing: 'free',
+      audio: baseAudio,
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it('exige un prix si payant', () => {
+    const parsed = studioTrackSchema.safeParse({
+      title: 'Rebelle',
+      artistName: 'FOFO',
+      genre: 'POP',
+      albumMode: 'none',
+      pricing: 'paid',
+      priceEuros: '',
+      audio: baseAudio,
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it('convertit le prix en euros', () => {
+    const parsed = studioTrackSchema.safeParse({
+      title: 'Rebelle',
+      artistName: 'FOFO',
+      genre: 'POP',
+      albumMode: 'none',
+      pricing: 'paid',
+      priceEuros: '1,99',
+      audio: baseAudio,
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(toPrice(parsed.data)).toBe(1.99);
+    }
+  });
+});
