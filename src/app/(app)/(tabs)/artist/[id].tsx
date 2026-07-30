@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/Button';
 import { himbaColors } from '@/constants/theme';
 import { usePlayTrack } from '@/hooks/usePlayTrack';
 import { getErrorMessage } from '@/lib/errors/apiError';
+import { openLecturePlayer } from '@/lib/navigation/openLecturePlayer';
 import { openArtistProfile } from '@/lib/navigation/openProfile';
 import { useGetAlbumsQuery } from '@/store/api/albumsApi';
 import { useGetArtistQuery } from '@/store/api/artistsApi';
@@ -231,7 +232,9 @@ export default function ArtistPublicProfileScreen() {
               key={track.id}
               track={track}
               onPress={(t) => {
-                void playTrack(t);
+                void playTrack(t, { queue: tracks }).then(() => {
+                  openLecturePlayer();
+                });
               }}
             />
           ))}

@@ -9,6 +9,7 @@ import {
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { MiniPlayer } from '@/components/player/MiniPlayer';
 import { himbaColors } from '@/constants/theme';
 import { canPublishMusic } from '@/lib/auth/canPublishMusic';
 import { useAppSelector } from '@/store';
@@ -24,6 +25,7 @@ const TAB_LABELS: Record<(typeof VISIBLE_TABS)[number], string> = {
 
 /**
  * Tab bar — Accueil | Musique | ＋ | Actus | Profil (couleurs Himba).
+ * Mini-lecteur collé juste au-dessus (masqué sur l’onglet Musique = lecteur plein).
  */
 export function HimbaTabBar({
   state,
@@ -32,8 +34,25 @@ export function HimbaTabBar({
 }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const role = useAppSelector((s) => s.auth.user?.role);
+  const hasTrack = useAppSelector((s) => s.player.track != null);
   const showPublish = canPublishMusic(role);
   const bottomPad = Math.max(insets.bottom, 8);
+  const focusedRoute = state.routes[state.index]?.name;
+  // Mini visible partout sauf sur le lecteur plein (library)
+  const showMiniPlayer = focusedRoute !== 'library' && hasTrack;
+  // Sous-écrans liés à Musique → garder l’onglet Musique actif
+  const musicSectionFocused =
+    focusedRoute === 'library' ||
+    focusedRoute === 'bibliotheque' ||
+    focusedRoute === 'favorites' ||
+    focusedRoute === 'playlist/[id]';
+
+  // Studio / édition → onglet Profil actif
+  const profileSectionFocused =
+    focusedRoute === 'profile' ||
+    focusedRoute === 'studio' ||
+    focusedRoute === 'edit-track/[id]' ||
+    focusedRoute === 'edit-album/[id]';
 
   const visibleRoutes = state.routes.filter((route) =>
     (VISIBLE_TABS as readonly string[]).includes(route.name),
@@ -48,7 +67,12 @@ export function HimbaTabBar({
       return <View key={routeName} style={styles.slot} />;
     }
     const index = state.routes.findIndex((r) => r.key === route.key);
-    const focused = state.index === index;
+    const focused =
+      routeName === 'library'
+        ? musicSectionFocused
+        : routeName === 'profile'
+          ? profileSectionFocused
+          : state.index === index;
     const { options } = descriptors[route.key] ?? {
       options: {},
     };
@@ -64,7 +88,23 @@ export function HimbaTabBar({
         target: route.key,
         canPreventDefault: true,
       });
-      if (!focused && !event.defaultPrevented) {
+      if (event.defaultPrevented) {
+        return;
+      }
+      // Depuis sous-écrans Musique → tap Musique ouvre le lecteur
+      if (routeName === 'library' && musicSectionFocused && focusedRoute !== 'library') {
+        navigation.navigate('library');
+        return;
+      }
+      if (
+        routeName === 'profile' &&
+        profileSectionFocused &&
+        focusedRoute !== 'profile'
+      ) {
+        navigation.navigate('profile');
+        return;
+      }
+      if (state.index !== index) {
         navigation.navigate(route.name, route.params);
       }
     };
@@ -109,11 +149,12 @@ export function HimbaTabBar({
   };
 
   const onPublish = (_event: GestureResponderEvent) => {
-    router.push('/(app)/studio');
+    router.push('/(app)/(tabs)/studio');
   };
 
   return (
     <View style={[styles.wrap, { paddingBottom: bottomPad }]}>
+      {showMiniPlayer ? <MiniPlayer /> : null}
       <View style={styles.bar}>
         {left.map((route) => renderTab(route.name))}
 
@@ -123,7 +164,10 @@ export function HimbaTabBar({
               onPress={onPublish}
               accessibilityRole="button"
               accessibilityLabel="Publier une musique"
-              style={styles.publishBtn}
+              style={[
+                styles.publishBtn,
+                showMiniPlayer ? styles.publishBtnWithMini : null,
+              ]}
               hitSlop={6}
             >
               <Text style={styles.publishPlus}>＋</Text>
@@ -144,7 +188,7 @@ const styles = StyleSheet.create({
     backgroundColor: himbaColors.surface,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: 'rgba(245,240,255,0.12)',
-    paddingTop: 6,
+    paddingTop: 0,
   },
   bar: {
     flexDirection: 'row',
@@ -152,6 +196,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     minHeight: 56,
     paddingHorizontal: 4,
+    paddingTop: 6,
   },
   slot: {
     flex: 1,
@@ -198,6 +243,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.45,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
+  },
+  /** Évite que le ＋ chevauche le mini-lecteur docké. */
+  publishBtnWithMini: {
+    marginTop: 0,
   },
   publishPlus: {
     fontSize: 28,

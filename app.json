@@ -2,7 +2,7 @@
   "expo": {
     "name": "Himba",
     "slug": "himba",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "orientation": "portrait",
     "icon": "./assets/images/Logo.jpg",
     "scheme": "himba",
@@ -13,18 +13,24 @@
       "bundleIdentifier": "fr.cellulenoire.himba",
       "config": {
         "usesNonExemptEncryption": false
+      },
+      "infoPlist": {
+        "UIBackgroundModes": ["audio"]
       }
     },
     "android": {
       "package": "fr.cellulenoire.himba",
-      "versionCode": 4,
+      "versionCode": 5,
       "adaptiveIcon": {
         "backgroundColor": "#0B0618",
         "foregroundImage": "./assets/images/Logo.jpg"
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [
-        "android.permission.MODIFY_AUDIO_SETTINGS"
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+        "android.permission.POST_NOTIFICATIONS"
       ]
     },
     "web": {
@@ -45,6 +51,14 @@
       "expo-secure-store",
       "expo-font",
       "expo-audio",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/Logo.jpg",
+          "color": "#E85D04",
+          "defaultChannel": "sorties"
+        }
+      ],
       [
         "expo-image-picker",
         {

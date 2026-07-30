@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/Button';
 import { himbaColors } from '@/constants/theme';
 import { usePlayTrack } from '@/hooks/usePlayTrack';
 import { getErrorMessage } from '@/lib/errors/apiError';
+import { openLecturePlayer } from '@/lib/navigation/openLecturePlayer';
 import type { Track } from '@/schemas/tracks';
 import {
   useAddPlaylistTrackMutation,
@@ -77,12 +78,16 @@ export default function PlaylistDetailScreen() {
   const onPlayAll = () => {
     const first = tracks[0];
     if (first) {
-      void playTrack(first, { queue: tracks });
+      void playTrack(first, { queue: tracks }).then(() => {
+        openLecturePlayer();
+      });
     }
   };
 
   const onPlayOne = (track: Track) => {
-    void playTrack(track, { queue: tracks });
+    void playTrack(track, { queue: tracks }).then(() => {
+      openLecturePlayer();
+    });
   };
 
   const onConfirmAdd = async () => {

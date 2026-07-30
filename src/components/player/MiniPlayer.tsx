@@ -6,7 +6,10 @@ import { useAudioPlayerControls } from '@/providers/AudioPlayerProvider';
 import { useAppDispatch, useAppSelector } from '@/store';
 import { clearPlayer, setPlaying } from '@/store/slices/playerSlice';
 
-/** Mini-lecteur flottant au-dessus de la tab bar — tap → écran Lecture. */
+/**
+ * Mini-lecteur collé au-dessus de la tab bar (docké, pleine largeur).
+ * Tap → onglet Musique (lecteur plein).
+ */
 export function MiniPlayer() {
   const dispatch = useAppDispatch();
   const { track, isPlaying, needsPurchase, error } = useAppSelector(
@@ -23,13 +26,13 @@ export function MiniPlayer() {
   };
 
   return (
-    <View className="absolute bottom-[88px] left-5 right-5 z-50 overflow-hidden rounded-2xl border border-himba-canopy bg-himba-earth px-3 py-2">
+    <View className="border-t border-himba-canopy/80 bg-himba-earth px-3 py-2">
       <View className="flex-row items-center gap-3">
         <Pressable
           onPress={openLecture}
           accessibilityRole="button"
           accessibilityLabel="Ouvrir la lecture"
-          className="flex-1 flex-row items-center gap-3"
+          className="min-h-11 flex-1 flex-row items-center gap-3"
         >
           <View className="h-11 w-11 overflow-hidden rounded-lg bg-himba-canopy">
             {track.coverUrl ? (
@@ -47,7 +50,7 @@ export function MiniPlayer() {
             <Text className="text-xs text-himba-mist" numberOfLines={1}>
               {needsPurchase
                 ? 'Achat requis'
-                : error ?? track.artist?.displayName ?? 'Himba'}
+                : (error ?? track.artist?.displayName ?? 'Himba')}
             </Text>
           </View>
         </Pressable>
@@ -68,7 +71,7 @@ export function MiniPlayer() {
           }}
           accessibilityRole="button"
           accessibilityLabel="Fermer le lecteur"
-          className="px-2"
+          className="min-h-11 min-w-11 items-center justify-center px-2"
         >
           <Text className="text-himba-mist">✕</Text>
         </Pressable>

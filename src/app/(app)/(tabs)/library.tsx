@@ -1,5 +1,5 @@
-import { Image } from 'expo-image';
-import { router } from 'expo-router';
+import { useMemo } from 'react';
+import { router, type Href } from 'expo-router';
 import {
   Pressable,
   ScrollView,
@@ -10,7 +10,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { HimbaLogo } from '@/components/brand/HimbaWordmark';
-import { LibrarySections } from '@/components/library/LibrarySections';
 import {
   NextIcon,
   PauseIcon,
@@ -19,6 +18,7 @@ import {
   RepeatIcon,
   ShuffleIcon,
 } from '@/components/player/PlayerControlIcons';
+import { PlayerCoverSwipe } from '@/components/player/PlayerCoverSwipe';
 import { PlayerSeekBar } from '@/components/player/PlayerSeekBar';
 import { TrackRow } from '@/components/tracks/TrackRow';
 import { himbaColors, homeMedia } from '@/constants/theme';
@@ -36,8 +36,8 @@ import {
 } from '@/store/slices/playerSlice';
 
 /**
- * Onglet Musique — lecteur + playlists / favoris / suivis.
- * La file vient du player (playlist ouverte ou titre isolé).
+ * Onglet Musique — lecteur (cover + contrôles + file).
+ * Playlists / favoris / suivis → page Bibliothèque dédiée.
  */
 export default function LectureScreen() {
   const dispatch = useAppDispatch();
@@ -52,6 +52,25 @@ export default function LectureScreen() {
     queueTracks[0]?.coverUrl ??
     homeMedia.selectionAbstract;
   const titleCount = queueTracks.length;
+
+  const canSwipeCover = useMemo(() => {
+    if (queueTracks.length <= 1 && repeatMode !== 'all' && !shuffle) {
+      return false;
+    }
+    const next = pickNextInQueue(queueTracks, track?.id, {
+      shuffle,
+      repeatMode,
+    });
+    const prev = pickPrevInQueue(queueTracks, track?.id, {
+      shuffle,
+      repeatMode,
+    });
+    return next != null || prev != null;
+  }, [queueTracks, track?.id, shuffle, repeatMode]);
+
+  const openBibliotheque = () => {
+    router.push('/(app)/(tabs)/bibliotheque' as Href);
+  };
 
   const onPlayPress = () => {
     if (track && !needsPurchase) {
@@ -99,6 +118,15 @@ export default function LectureScreen() {
               <Text style={styles.brandTag}>la musique nous relie</Text>
             </View>
           </View>
+          <Pressable
+            onPress={openBibliotheque}
+            accessibilityRole="button"
+            accessibilityLabel="Ouvrir la bibliothèque"
+            hitSlop={8}
+            style={styles.libraryLink}
+          >
+            <Text style={styles.libraryLinkLabel}>Bibliothèque</Text>
+          </Pressable>
         </View>
 
         <View style={styles.titleRow}>
@@ -113,15 +141,15 @@ export default function LectureScreen() {
           </View>
         </View>
 
-        <Image
-          source={{ uri: cover }}
-          style={styles.heroCover}
-          contentFit="cover"
+        <PlayerCoverSwipe
+          coverUri={cover}
           accessibilityLabel={track?.title ?? 'Aucun morceau'}
+          canSwipe={canSwipeCover}
+          onSwipeNext={onNext}
+          onSwipePrev={onPrev}
         />
 
         <View style={styles.nowPlaying}>
-          <Text style={styles.wave}>▮▮▮</Text>
           <Text style={styles.nowTitle}>
             {track?.title ?? 'Aucun morceau'}
           </Text>
@@ -198,7 +226,14 @@ export default function LectureScreen() {
         </View>
 
         <View style={styles.playlistHeader}>
-          <Text style={styles.playlistTitle}>En cours</Text>
+          <Text style={styles.playlistTitle}>
+            {queueTracks.length > 0 ? 'File de lecture' : 'En cours'}
+          </Text>
+          {queueTracks.length > 1 ? (
+            <Text style={styles.playlistHint}>
+              Appuie sur un titre pour le lire
+            </Text>
+          ) : null}
         </View>
 
         {queueTracks.length === 0 ? (
@@ -208,45 +243,40 @@ export default function LectureScreen() {
             </View>
             <Text style={styles.emptyTitle}>Aucun morceau en lecture</Text>
             <Text style={styles.emptyBody}>
-              Ouvre une playlist ci-dessous, ou choisis un titre dans Explorer.
+              Ouvre une playlist dans Bibliothèque, ou choisis un titre dans
+              Explorer.
             </Text>
             <Pressable
-              onPress={() =>
-                router.push({
-                  pathname: '/(app)/(tabs)',
-                  params: { tab: 'explorer' },
-                })
-              }
+              onPress={openBibliotheque}
               accessibilityRole="button"
-              accessibilityLabel="Explorer les morceaux"
+              accessibilityLabel="Ouvrir la bibliothèque"
               style={styles.cta}
             >
-              <Text style={styles.ctaLabel}>Explorer les morceaux</Text>
+              <Text style={styles.ctaLabel}>Ma bibliothèque</Text>
             </Pressable>
           </View>
         ) : (
           <View className="gap-2">
-            {queueTracks.map((t) => (
-              <TrackRow
-                key={t.id}
-                track={t}
-                onPress={(item) => {
-                  void playTrack(item, { queue: queueTracks });
-                }}
-              />
-            ))}
+            {queueTracks.map((t) => {
+              const active = t.id === track?.id;
+              return (
+                <TrackRow
+                  key={t.id}
+                  track={t}
+                  isActive={active}
+                  isPlaying={active && isPlaying}
+                  onPress={(item) => {
+                    if (active && !needsPurchase) {
+                      toggle();
+                      return;
+                    }
+                    void playTrack(item, { queue: queueTracks });
+                  }}
+                />
+              );
+            })}
           </View>
         )}
-
-        <View className="mt-2 gap-2">
-          <Text
-            className="text-2xl text-himba-ink"
-            style={{ fontFamily: 'Literata_700Bold' }}
-          >
-            Bibliothèque
-          </Text>
-          <LibrarySections />
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -289,6 +319,16 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: himbaColors.mist,
   },
+  libraryLink: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  libraryLinkLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: himbaColors.ember,
+  },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -321,20 +361,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: himbaColors.mist,
   },
-  heroCover: {
-    width: '100%',
-    aspectRatio: 1,
-    borderRadius: 28,
-    backgroundColor: himbaColors.earth,
-  },
   nowPlaying: {
     alignItems: 'center',
     gap: 4,
-  },
-  wave: {
-    fontSize: 12,
-    letterSpacing: 2,
-    color: himbaColors.ember,
   },
   nowTitle: {
     fontSize: 22,
@@ -368,14 +397,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   playlistHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 4,
   },
   playlistTitle: {
     fontSize: 20,
     fontWeight: '700',
     color: himbaColors.ink,
+  },
+  playlistHint: {
+    fontSize: 13,
+    color: himbaColors.mist,
   },
   emptyCard: {
     borderRadius: 22,

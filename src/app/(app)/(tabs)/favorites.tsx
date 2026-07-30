@@ -13,6 +13,7 @@ import { TrackRow } from '@/components/tracks/TrackRow';
 import { Button } from '@/components/ui/Button';
 import { himbaColors } from '@/constants/theme';
 import { usePlayTrack } from '@/hooks/usePlayTrack';
+import { openLecturePlayer } from '@/lib/navigation/openLecturePlayer';
 import type { Track } from '@/schemas/tracks';
 import {
   useGetFavoritesQuery,
@@ -47,12 +48,16 @@ export default function FavoritesScreen() {
   const onPlayAll = () => {
     const first = tracks[0];
     if (first) {
-      void playTrack(first, { queue: tracks });
+      void playTrack(first, { queue: tracks }).then(() => {
+        openLecturePlayer();
+      });
     }
   };
 
   const onPlayOne = (track: Track) => {
-    void playTrack(track, { queue: tracks });
+    void playTrack(track, { queue: tracks }).then(() => {
+      openLecturePlayer();
+    });
   };
 
   return (

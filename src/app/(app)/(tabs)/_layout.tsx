@@ -86,6 +86,62 @@ export default function AppTabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="bibliotheque"
+        options={{
+          href: null,
+          title: 'Bibliothèque',
+        }}
+      />
+      <Tabs.Screen
+        name="favorites"
+        options={{
+          href: null,
+          title: 'Favoris',
+        }}
+      />
+      <Tabs.Screen
+        name="playlist/[id]"
+        options={{
+          href: null,
+          title: 'Playlist',
+        }}
+      />
+      <Tabs.Screen
+        name="artist/[id]"
+        options={{
+          href: null,
+          title: 'Artiste',
+        }}
+      />
+      <Tabs.Screen
+        name="user/[id]"
+        options={{
+          href: null,
+          title: 'Profil public',
+        }}
+      />
+      <Tabs.Screen
+        name="studio"
+        options={{
+          href: null,
+          title: 'Studio',
+        }}
+      />
+      <Tabs.Screen
+        name="edit-track/[id]"
+        options={{
+          href: null,
+          title: 'Modifier le titre',
+        }}
+      />
+      <Tabs.Screen
+        name="edit-album/[id]"
+        options={{
+          href: null,
+          title: 'Modifier l’album',
+        }}
+      />
+      <Tabs.Screen
         name="explore"
         options={{
           title: 'Actus',

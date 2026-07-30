@@ -18,7 +18,6 @@ import { HomeHeroCarousel } from '@/components/home/HomeHeroCarousel';
 import { HomeTabs } from '@/components/home/HomeTabs';
 import { SelectionSection } from '@/components/home/SelectionSection';
 import { AtmosphereBackdrop } from '@/components/media/AtmosphereBackdrop';
-import { MiniPlayer } from '@/components/player/MiniPlayer';
 import { TrackRow } from '@/components/tracks/TrackRow';
 import { himbaColors, homeMedia } from '@/constants/theme';
 import { usePlayTrack } from '@/hooks/usePlayTrack';
@@ -135,7 +134,7 @@ export default function HomeScreen() {
       ) : null}
       <ScrollView
         className="flex-1"
-        contentContainerClassName="gap-5 px-5 pb-40 pt-2"
+        contentContainerClassName="gap-5 px-5 pb-6 pt-2"
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         refreshControl={
@@ -230,7 +229,6 @@ export default function HomeScreen() {
           />
         ) : null}
       </ScrollView>
-      <MiniPlayer />
     </SafeAreaView>
   );
 }

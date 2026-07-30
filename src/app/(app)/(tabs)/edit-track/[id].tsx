@@ -42,7 +42,7 @@ export default function EditTrackScreen() {
   }
 
   if (!trackId) {
-    return <Redirect href="/(app)/studio" />;
+    return <Redirect href="/(app)/(tabs)/studio" />;
   }
 
   return <EditTrackForm trackId={trackId} />;

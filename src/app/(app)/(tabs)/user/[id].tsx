@@ -40,7 +40,7 @@ export default function UserPublicProfileScreen() {
   // Compte artiste → vitrine albums / titres
   useEffect(() => {
     if (profile?.artistId) {
-      router.replace(`/(app)/artist/${profile.artistId}` as Href);
+      router.replace(`/(app)/(tabs)/artist/${profile.artistId}` as Href);
     }
   }, [profile?.artistId]);
 

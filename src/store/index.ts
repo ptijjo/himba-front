@@ -8,6 +8,7 @@ import { playerReducer } from '@/store/slices/playerSlice';
 
 import '@/store/api/albumsApi';
 import '@/store/api/artistsApi';
+import '@/store/api/notificationsApi';
 import '@/store/api/authApi';
 import '@/store/api/libraryApi';
 import '@/store/api/tracksApi';

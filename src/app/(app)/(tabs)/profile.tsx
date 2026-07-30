@@ -4,7 +4,6 @@ import { Controller, useForm } from 'react-hook-form';
 import { ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { MiniPlayer } from '@/components/player/MiniPlayer';
 import { ProfileAvatar } from '@/components/profile/ProfileAvatar';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -43,7 +42,7 @@ export default function ProfileScreen() {
     <SafeAreaView className="flex-1 bg-himba-night">
       <ScrollView
         className="flex-1"
-        contentContainerClassName="gap-4 px-5 pb-40 pt-4"
+        contentContainerClassName="gap-4 px-5 pb-6 pt-4"
       >
         <Text
           className="text-3xl text-himba-ink"
@@ -78,7 +77,6 @@ export default function ProfileScreen() {
           }}
         />
       </ScrollView>
-      <MiniPlayer />
     </SafeAreaView>
   );
 }

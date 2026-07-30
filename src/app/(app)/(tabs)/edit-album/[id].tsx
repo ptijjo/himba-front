@@ -43,7 +43,7 @@ export default function EditAlbumScreen() {
   }
 
   if (!albumId) {
-    return <Redirect href="/(app)/studio" />;
+    return <Redirect href="/(app)/(tabs)/studio" />;
   }
 
   return <EditAlbumForm albumId={albumId} />;

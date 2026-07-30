@@ -85,6 +85,7 @@ export const baseApi = createApi({
     'Favorites',
     'Follows',
     'Playlists',
+    'Notifications',
   ],
   endpoints: () => ({}),
 });

@@ -150,6 +150,7 @@ export const {
   useUnfollowArtistMutation,
   useGetPlaylistsQuery,
   useGetPlaylistQuery,
+  useLazyGetPlaylistQuery,
   useCreatePlaylistMutation,
   useAddPlaylistTrackMutation,
   useDeletePlaylistMutation,

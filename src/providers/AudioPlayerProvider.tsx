@@ -69,7 +69,8 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void setAudioModeAsync({
       playsInSilentMode: true,
-      shouldPlayInBackground: false,
+      // Continuer la lecture écran verrouillé / app en arrière-plan
+      shouldPlayInBackground: true,
       interruptionMode: 'doNotMix',
       allowsRecording: false,
     });

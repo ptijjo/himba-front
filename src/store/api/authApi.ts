@@ -3,8 +3,13 @@
  */
 import { applyAuthLoginResponse } from '@/lib/auth/applyAuthLoginResponse';
 import { clearTokens } from '@/lib/auth/tokenStorage';
+import {
+  clearStoredPushToken,
+  getStoredPushToken,
+} from '@/lib/push/pushTokenStorage';
 import { authUserSchema, type LoginFormValues, type RegisterFormValues } from '@/schemas/auth';
 import { baseApi } from '@/store/api/baseApi';
+import { notificationsApi } from '@/store/api/notificationsApi';
 import { clearCredentials } from '@/store/slices/authSlice';
 
 export const authApi = baseApi.injectEndpoints({
@@ -45,6 +50,18 @@ export const authApi = baseApi.injectEndpoints({
         method: 'POST',
       }),
       async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
+        // 1. Révoquer le token Expo côté API tant que le Bearer est encore valide
+        const pushToken = await getStoredPushToken();
+        if (pushToken) {
+          try {
+            await dispatch(
+              notificationsApi.endpoints.deletePushToken.initiate(pushToken),
+            ).unwrap();
+          } catch {
+            // Best-effort : on efface quand même le stockage local
+          }
+          await clearStoredPushToken();
+        }
         try {
           await queryFulfilled;
         } finally {

@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
   ActivityIndicator,
@@ -23,6 +23,7 @@ import {
   useAddPlaylistTrackMutation,
   useCreatePlaylistMutation,
   useGetPlaylistsQuery,
+  useLazyGetPlaylistQuery,
 } from '@/store/api/libraryApi';
 
 type AddToPlaylistModalProps = {
@@ -35,8 +36,9 @@ type AddToPlaylistModalProps = {
 
 /**
  * Fenêtre « Ajouter à une playlist » — liste des playlists + création.
- * 1. Choisir une playlist existante → POST /playlists/:id/tracks
- * 2. Ou créer une nouvelle → POST /playlists puis ajout du titre
+ * 1. Charger le détail de chaque playlist pour savoir si le titre y est déjà
+ * 2. Afficher ✓ (désactivé) si présent, ＋ sinon → POST /playlists/:id/tracks
+ * 3. Ou créer une nouvelle → POST /playlists puis ajout du titre
  */
 export function AddToPlaylistModal({
   track,
@@ -46,12 +48,18 @@ export function AddToPlaylistModal({
 }: AddToPlaylistModalProps) {
   const { data: playlistsData, isLoading: loadingList } =
     useGetPlaylistsQuery();
+  const [fetchPlaylist] = useLazyGetPlaylistQuery();
   const [createPlaylist, { isLoading: creating }] = useCreatePlaylistMutation();
   const [addPlaylistTrack, { isLoading: adding }] =
     useAddPlaylistTrackMutation();
 
   const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+  /** Playlists qui contiennent déjà le titre courant. */
+  const [containingIds, setContainingIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [checkingMembership, setCheckingMembership] = useState(false);
 
   const {
     control,
@@ -63,19 +71,67 @@ export function AddToPlaylistModal({
     defaultValues: { name: '' },
   });
 
+  const playlists = useMemo(
+    () => playlistsData?.items ?? [],
+    [playlistsData?.items],
+  );
+  const playlistIdsKey = playlists.map((p) => p.id).join(',');
+
   useEffect(() => {
     if (!visible) {
       setError(null);
       setShowCreate(false);
+      setContainingIds(new Set());
+      setCheckingMembership(false);
       reset({ name: '' });
     }
   }, [visible, reset]);
 
+  // 1. Pour chaque playlist, GET détail → savoir si le titre est déjà dedans
+  useEffect(() => {
+    const trackId = track?.id;
+    if (!visible || !trackId || playlists.length === 0) {
+      return;
+    }
+
+    let cancelled = false;
+    const playlistsSnapshot = playlists;
+
+    async function loadMembership() {
+      setCheckingMembership(true);
+      const next = new Set<string>();
+      await Promise.all(
+        playlistsSnapshot.map(async (playlist) => {
+          try {
+            const detail = await fetchPlaylist(playlist.id).unwrap();
+            const hasTrack = detail.tracks.some(
+              (row) => row.trackId === trackId,
+            );
+            if (hasTrack) {
+              next.add(playlist.id);
+            }
+          } catch {
+            // Détail indispo : on laisse le ＋ (l’API renverra 409 si besoin)
+          }
+        }),
+      );
+      if (!cancelled) {
+        setContainingIds(next);
+        setCheckingMembership(false);
+      }
+    }
+
+    void loadMembership();
+    return () => {
+      cancelled = true;
+    };
+  }, [visible, track?.id, playlistIdsKey, playlists, fetchPlaylist]);
+
   const busy = creating || adding;
-  const playlists = playlistsData?.items ?? [];
+  const listBusy = loadingList || checkingMembership;
 
   const addToPlaylist = async (playlistId: string, playlistName: string) => {
-    if (!track) {
+    if (!track || containingIds.has(playlistId)) {
       return;
     }
     setError(null);
@@ -84,10 +140,18 @@ export function AddToPlaylistModal({
         playlistId,
         trackId: track.id,
       }).unwrap();
+      setContainingIds((prev) => new Set(prev).add(playlistId));
       onAdded?.(playlistName);
       onClose();
     } catch (e) {
-      setError(getErrorMessage(e, 'Ajout impossible'));
+      const message = getErrorMessage(e, 'Ajout impossible');
+      // 409 : synchroniser l’UI (coche) au lieu d’afficher seulement l’erreur
+      if (message.toLowerCase().includes('déjà')) {
+        setContainingIds((prev) => new Set(prev).add(playlistId));
+        setError(null);
+        return;
+      }
+      setError(message);
     }
   };
 
@@ -146,33 +210,62 @@ export function AddToPlaylistModal({
             contentContainerClassName="gap-2 pb-4"
             keyboardShouldPersistTaps="handled"
           >
-            {loadingList ? (
+            {listBusy ? (
               <ActivityIndicator color={himbaColors.ember} />
             ) : null}
 
-            {!loadingList && playlists.length === 0 && !showCreate ? (
+            {!listBusy && playlists.length === 0 && !showCreate ? (
               <Text className="text-sm text-himba-mist">
                 Aucune playlist pour l’instant — crée-en une ci-dessous.
               </Text>
             ) : null}
 
-            {playlists.map((playlist) => (
-              <Pressable
-                key={playlist.id}
-                disabled={busy}
-                onPress={() => {
-                  void addToPlaylist(playlist.id, playlist.name);
-                }}
-                accessibilityRole="button"
-                accessibilityLabel={`Ajouter à ${playlist.name}`}
-                className="min-h-14 flex-row items-center justify-between rounded-2xl bg-himba-earth px-4 py-3"
-              >
-                <Text className="flex-1 font-semibold text-himba-ink">
-                  {playlist.name}
-                </Text>
-                <Text className="text-himba-ember">＋</Text>
-              </Pressable>
-            ))}
+            {!listBusy
+              ? playlists.map((playlist) => {
+                  const alreadyIn = containingIds.has(playlist.id);
+                  return (
+                    <Pressable
+                      key={playlist.id}
+                      disabled={busy || alreadyIn}
+                      onPress={() => {
+                        void addToPlaylist(playlist.id, playlist.name);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityState={{ disabled: alreadyIn }}
+                      accessibilityLabel={
+                        alreadyIn
+                          ? `Déjà dans ${playlist.name}`
+                          : `Ajouter à ${playlist.name}`
+                      }
+                      className={`min-h-14 flex-row items-center justify-between rounded-2xl px-4 py-3 ${
+                        alreadyIn
+                          ? 'bg-himba-earth/60 opacity-80'
+                          : 'bg-himba-earth'
+                      }`}
+                    >
+                      <View className="flex-1 gap-0.5 pr-3">
+                        <Text className="font-semibold text-himba-ink">
+                          {playlist.name}
+                        </Text>
+                        {alreadyIn ? (
+                          <Text className="text-xs text-himba-mist">
+                            Déjà ajouté
+                          </Text>
+                        ) : null}
+                      </View>
+                      <Text
+                        className={
+                          alreadyIn
+                            ? 'text-lg font-bold text-himba-pulse'
+                            : 'text-himba-ember'
+                        }
+                      >
+                        {alreadyIn ? '✓' : '＋'}
+                      </Text>
+                    </Pressable>
+                  );
+                })
+              : null}
 
             {!showCreate ? (
               <Pressable

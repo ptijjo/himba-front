@@ -129,7 +129,7 @@ export function StudioLibrarySection({
             accessibilityRole="button"
             accessibilityLabel={`Modifier ${album.title}`}
             disabled={busy}
-            onPress={() => router.push(`/(app)/edit-album/${album.id}`)}
+            onPress={() => router.push(`/(app)/(tabs)/edit-album/${album.id}`)}
             className="min-h-11 justify-center px-2"
           >
             <Text className="text-sm font-semibold text-himba-ember">
@@ -190,7 +190,7 @@ export function StudioLibrarySection({
             accessibilityRole="button"
             accessibilityLabel={`Modifier ${track.title}`}
             disabled={busy}
-            onPress={() => router.push(`/(app)/edit-track/${track.id}`)}
+            onPress={() => router.push(`/(app)/(tabs)/edit-track/${track.id}`)}
             className="min-h-11 justify-center px-2"
           >
             <Text className="text-sm font-semibold text-himba-ember">

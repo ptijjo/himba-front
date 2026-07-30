@@ -24,7 +24,7 @@ export function PublishMusicButton({
   if (variant === 'compact') {
     return (
       <Pressable
-        onPress={() => router.push('/(app)/studio')}
+        onPress={() => router.push('/(app)/(tabs)/studio')}
         accessibilityRole="button"
         accessibilityLabel="Publier une musique"
         className="h-10 min-w-[44px] items-center justify-center rounded-full bg-himba-ember px-3"
@@ -36,7 +36,7 @@ export function PublishMusicButton({
 
   return (
     <Pressable
-      onPress={() => router.push('/(app)/studio')}
+      onPress={() => router.push('/(app)/(tabs)/studio')}
       accessibilityRole="button"
       accessibilityLabel="Publier une musique"
       className="min-h-[52px] flex-row items-center justify-center gap-2 rounded-pill bg-himba-ember px-6"
