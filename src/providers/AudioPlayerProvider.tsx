@@ -20,6 +20,7 @@ import {
   type ReactNode,
 } from 'react';
 
+import { PlayerQueueAutoAdvance } from '@/components/player/PlayerQueueAutoAdvance';
 import {
   getCachedTrackUri,
   prefetchTrackAudio,
@@ -30,7 +31,7 @@ import {
   usePlayerProgressStore,
 } from '@/lib/audio/playerProgressStore';
 import { useAppDispatch, useAppSelector } from '@/store';
-import { setPlaying } from '@/store/slices/playerSlice';
+import { markTrackEnded, setPlaying } from '@/store/slices/playerSlice';
 
 type PlayerControlsValue = {
   toggle: () => void;
@@ -163,7 +164,8 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
             return;
           }
           if (status.didJustFinish) {
-            dispatch(setPlaying(false));
+            // Fin de titre → auto-avance via PlayerQueueAutoAdvance
+            dispatch(markTrackEnded());
             setPlayerProgress({
               currentTime: 0,
               duration:
@@ -264,6 +266,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
 
   return (
     <PlayerControlsContext.Provider value={controls}>
+      <PlayerQueueAutoAdvance />
       {children}
     </PlayerControlsContext.Provider>
   );

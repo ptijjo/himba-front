@@ -1,5 +1,5 @@
 /**
- * Slice player — métadonnées UI uniquement (URL stream hors store durable).
+ * Slice player — métadonnées UI + file de lecture (playlist).
  */
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 
@@ -15,6 +15,10 @@ type PlayerState = {
   error: string | null;
   shuffle: boolean;
   repeatMode: RepeatMode;
+  /** File active (playlist ou titre isolé). */
+  queue: Track[];
+  /** Incrémenté à la fin d’un titre → auto-avance. */
+  trackEndedNonce: number;
 };
 
 const initialState: PlayerState = {
@@ -25,6 +29,8 @@ const initialState: PlayerState = {
   error: null,
   shuffle: false,
   repeatMode: 'off',
+  queue: [],
+  trackEndedNonce: 0,
 };
 
 const REPEAT_CYCLE: RepeatMode[] = ['off', 'all', 'one'];
@@ -33,6 +39,9 @@ const playerSlice = createSlice({
   name: 'player',
   initialState,
   reducers: {
+    setQueue(state, action: PayloadAction<Track[]>) {
+      state.queue = action.payload;
+    },
     setNowPlaying(
       state,
       action: PayloadAction<{ track: Track; streamUrl: string }>,
@@ -45,6 +54,10 @@ const playerSlice = createSlice({
     },
     setPlaying(state, action: PayloadAction<boolean>) {
       state.isPlaying = action.payload;
+    },
+    markTrackEnded(state) {
+      state.isPlaying = false;
+      state.trackEndedNonce += 1;
     },
     setNeedsPurchase(state, action: PayloadAction<{ track: Track }>) {
       state.track = action.payload.track;
@@ -71,14 +84,17 @@ const playerSlice = createSlice({
       state.isPlaying = false;
       state.needsPurchase = false;
       state.error = null;
+      state.queue = [];
       // shuffle / repeat conservés volontairement
     },
   },
 });
 
 export const {
+  setQueue,
   setNowPlaying,
   setPlaying,
+  markTrackEnded,
   setNeedsPurchase,
   setPlayerError,
   toggleShuffle,

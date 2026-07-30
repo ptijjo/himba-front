@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AddToPlaylistModal } from '@/components/library/AddToPlaylistModal';
 import { himbaColors, homeMedia } from '@/constants/theme';
 import { getErrorMessage } from '@/lib/errors/apiError';
+import { openArtistProfile } from '@/lib/navigation/openProfile';
 import type { Track } from '@/schemas/tracks';
 import { useGetArtistQuery } from '@/store/api/artistsApi';
 import {
@@ -159,18 +160,34 @@ export function SelectionSection({
               <Text style={styles.title} numberOfLines={1}>
                 {featured?.title ?? 'Titre à découvrir'}
               </Text>
-              <Text style={styles.subtitle} numberOfLines={1}>
+              <Text
+                style={styles.subtitle}
+                numberOfLines={1}
+                onPress={() => {
+                  if (artistId) {
+                    openArtistProfile(artistId);
+                  }
+                }}
+                accessibilityRole="link"
+              >
                 {artistName}
               </Text>
             </View>
             <View style={styles.headerActions}>
-              <View
+              <Pressable
+                onPress={() => {
+                  if (artistId) {
+                    openArtistProfile(artistId);
+                  }
+                }}
+                disabled={!artistId}
+                accessibilityRole="button"
+                accessibilityLabel={`Voir le profil de ${artistName}`}
                 style={styles.avatar}
-                accessibilityLabel={`Profil ${artistName}`}
               >
-                {artist?.coverUrl ? (
+                {artist?.avatarUrl ? (
                   <Image
-                    source={{ uri: artist.coverUrl }}
+                    source={{ uri: artist.avatarUrl }}
                     style={styles.avatarImage}
                     contentFit="cover"
                   />
@@ -179,7 +196,7 @@ export function SelectionSection({
                     {artistName.charAt(0).toUpperCase()}
                   </Text>
                 )}
-              </View>
+              </Pressable>
               <Pressable
                 onPress={() => {
                   void onToggleFollow();

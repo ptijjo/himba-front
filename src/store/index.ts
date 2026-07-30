@@ -11,6 +11,7 @@ import '@/store/api/artistsApi';
 import '@/store/api/authApi';
 import '@/store/api/libraryApi';
 import '@/store/api/tracksApi';
+import '@/store/api/usersApi';
 
 export const store = configureStore({
   reducer: {

@@ -2,14 +2,14 @@
   "expo": {
     "name": "Himba",
     "slug": "himba",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
-    "icon": "./assets/images/logo-ptah-labs.jpg",
+    "icon": "./assets/images/Logo.jpg",
     "scheme": "himba",
     "userInterfaceStyle": "dark",
     "owner": "ptijjo",
     "ios": {
-      "icon": "./assets/images/logo-ptah-labs.jpg",
+      "icon": "./assets/images/Logo.jpg",
       "bundleIdentifier": "fr.cellulenoire.himba",
       "config": {
         "usesNonExemptEncryption": false
@@ -17,10 +17,10 @@
     },
     "android": {
       "package": "fr.cellulenoire.himba",
-      "versionCode": 3,
+      "versionCode": 4,
       "adaptiveIcon": {
         "backgroundColor": "#0B0618",
-        "foregroundImage": "./assets/images/logo-ptah-labs.jpg"
+        "foregroundImage": "./assets/images/Logo.jpg"
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [
@@ -30,7 +30,7 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/logo-ptah-labs.jpg"
+      "favicon": "./assets/images/Logo.jpg"
     },
     "plugins": [
       "expo-router",
@@ -38,7 +38,7 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#0B0618",
-          "image": "./assets/images/logo-ptah-labs.jpg",
+          "image": "./assets/images/Logo.jpg",
           "imageWidth": 120
         }
       ],

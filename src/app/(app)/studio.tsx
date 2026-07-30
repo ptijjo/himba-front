@@ -80,9 +80,9 @@ function StudioShell({
     { artistId, limit: 50 },
     { skip: !artistId },
   );
-  // Catalogue filtré côté client (GET /tracks n’a pas de filtre artistId).
+  // Catalogue filtré par artiste (GET /tracks?artistId=).
   const { data: tracksPage, isLoading: loadingTracks } = useGetTracksQuery(
-    { limit: 50 },
+    { artistId, limit: 50 },
     { skip: !artistId },
   );
 
@@ -90,10 +90,7 @@ function StudioShell({
   /** Après création d’album → pré-sélection sur le formulaire titre. */
   const [pendingAlbumId, setPendingAlbumId] = useState<string | null>(null);
 
-  const myTracks =
-    artistId && tracksPage?.items
-      ? tracksPage.items.filter((t) => t.artistId === artistId)
-      : [];
+  const myTracks = tracksPage?.items ?? [];
 
   return (
     <SafeAreaView className="flex-1 bg-himba-night" edges={['top']}>

@@ -11,6 +11,8 @@ export const artistSchema = z.object({
   displayName: z.string(),
   bio: z.string().nullable().optional(),
   coverUrl: z.string().nullable().optional(),
+  /** Photo de profil User liée. */
+  avatarUrl: z.string().nullable().optional(),
   createdAt: z.union([z.string(), z.coerce.date()]).optional(),
   updatedAt: z.union([z.string(), z.coerce.date()]).optional(),
 });

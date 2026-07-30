@@ -23,6 +23,10 @@ export default function AppGroupLayout() {
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: himbaColors.night } }}>
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="studio" />
+      <Stack.Screen name="artist/[id]" />
+      <Stack.Screen name="user/[id]" />
+      <Stack.Screen name="playlist/[id]" />
+      <Stack.Screen name="favorites" />
       <Stack.Screen name="edit-track/[id]" />
       <Stack.Screen name="edit-album/[id]" />
     </Stack>

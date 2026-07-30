@@ -2,6 +2,7 @@ import { Image } from 'expo-image';
 import { Pressable, Text, View } from 'react-native';
 
 import { himbaColors } from '@/constants/theme';
+import { openArtistProfile } from '@/lib/navigation/openProfile';
 import { formatTrackPrice, type Track } from '@/schemas/tracks';
 
 type TrackRowProps = {
@@ -12,15 +13,14 @@ type TrackRowProps = {
 
 export function TrackRow({ track, onPress, trailing }: TrackRowProps) {
   const price = formatTrackPrice(track.price);
+  const artistName = track.artist?.displayName ?? track.genre ?? 'Titre';
 
   return (
-    <Pressable
-      onPress={() => onPress(track)}
-      accessibilityRole="button"
-      accessibilityLabel={`Écouter ${track.title}`}
-      className="flex-row items-center gap-3 rounded-2xl bg-himba-earth p-3"
-    >
-      <View
+    <View className="flex-row items-center gap-3 rounded-2xl bg-himba-earth p-3">
+      <Pressable
+        onPress={() => onPress(track)}
+        accessibilityRole="button"
+        accessibilityLabel={`Écouter ${track.title}`}
         className="h-14 w-14 overflow-hidden rounded-xl"
         style={{ backgroundColor: himbaColors.canopy }}
       >
@@ -31,20 +31,44 @@ export function TrackRow({ track, onPress, trailing }: TrackRowProps) {
             contentFit="cover"
           />
         ) : null}
+      </Pressable>
+      <View className="flex-1 gap-0.5">
+        <Pressable
+          onPress={() => onPress(track)}
+          accessibilityRole="button"
+          accessibilityLabel={`Écouter ${track.title}`}
+        >
+          <Text className="font-semibold text-himba-ink" numberOfLines={1}>
+            {track.title}
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => {
+            if (track.artistId) {
+              openArtistProfile(track.artistId);
+            }
+          }}
+          disabled={!track.artistId}
+          accessibilityRole="button"
+          accessibilityLabel={`Profil de ${artistName}`}
+        >
+          <Text className="text-sm text-himba-mist" numberOfLines={1}>
+            {artistName} · {price}
+          </Text>
+        </Pressable>
       </View>
-      <View className="flex-1">
-        <Text className="font-semibold text-himba-ink" numberOfLines={1}>
-          {track.title}
-        </Text>
-        <Text className="text-sm text-himba-mist" numberOfLines={1}>
-          {track.artist?.displayName ?? track.genre ?? 'Titre'} · {price}
-        </Text>
-      </View>
-      {trailing ? (
-        <Text className="text-xs text-himba-ember">{trailing}</Text>
-      ) : (
-        <Text className="text-himba-ember">▶</Text>
-      )}
-    </Pressable>
+      <Pressable
+        onPress={() => onPress(track)}
+        accessibilityRole="button"
+        accessibilityLabel={`Écouter ${track.title}`}
+        hitSlop={8}
+      >
+        {trailing ? (
+          <Text className="text-xs text-himba-ember">{trailing}</Text>
+        ) : (
+          <Text className="text-himba-ember">▶</Text>
+        )}
+      </Pressable>
+    </View>
   );
 }

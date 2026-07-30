@@ -11,6 +11,7 @@ import {
 
 import { AddToPlaylistModal } from '@/components/library/AddToPlaylistModal';
 import { himbaColors, homeMedia } from '@/constants/theme';
+import { openArtistProfile } from '@/lib/navigation/openProfile';
 import type { Track } from '@/schemas/tracks';
 
 const GENRE_FILTERS = [
@@ -184,9 +185,19 @@ function ExploreTrackCard({
           <Text style={styles.cardTitle} numberOfLines={1}>
             {track.title}
           </Text>
-          <Text style={styles.cardArtist} numberOfLines={1}>
-            {artist}
-          </Text>
+          <Pressable
+            onPress={() => {
+              if (track.artistId) {
+                openArtistProfile(track.artistId);
+              }
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={`Voir le profil de ${artist}`}
+          >
+            <Text style={styles.cardArtist} numberOfLines={1}>
+              {artist}
+            </Text>
+          </Pressable>
         </View>
         <View style={styles.cardActions}>
           <Pressable

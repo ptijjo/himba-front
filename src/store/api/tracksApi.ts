@@ -30,13 +30,14 @@ export const tracksApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
     getTracks: build.query<
       TrackList,
-      { cursor?: string; limit?: number } | void
+      { cursor?: string; limit?: number; artistId?: string } | void
     >({
       query: (params) => ({
         url: '/tracks',
         params: {
           cursor: params?.cursor,
           limit: params?.limit ?? 20,
+          artistId: params?.artistId,
         },
       }),
       providesTags: ['Tracks'],

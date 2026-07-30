@@ -1,18 +1,18 @@
 import { Image } from 'expo-image';
 import { Text, View } from 'react-native';
 
-const logoSource = require('../../../assets/images/logo-ptah-labs.jpg');
+const logoSource = require('../../../assets/images/logo_dans_app.png');
 
 type HimbaLogoProps = {
   size?: number;
 };
 
-/** Logo application — Ptah Labs (hexagone orange). */
+/** Logo in-app (PNG transparent) — icône store = Logo.jpg via app.json. */
 export function HimbaLogo({ size = 40 }: HimbaLogoProps) {
   return (
     <Image
       source={logoSource}
-      style={{ width: size, height: size, borderRadius: size * 0.22 }}
+      style={{ width: size, height: size }}
       contentFit="contain"
       accessibilityLabel="Logo Himba"
     />

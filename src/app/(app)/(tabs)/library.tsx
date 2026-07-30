@@ -1,6 +1,5 @@
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { useMemo } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -24,13 +23,12 @@ import { PlayerSeekBar } from '@/components/player/PlayerSeekBar';
 import { TrackRow } from '@/components/tracks/TrackRow';
 import { himbaColors, homeMedia } from '@/constants/theme';
 import { usePlayTrack } from '@/hooks/usePlayTrack';
-import { useAudioPlayerControls } from '@/providers/AudioPlayerProvider';
-import type { Track } from '@/schemas/tracks';
-import { useAppDispatch, useAppSelector } from '@/store';
 import {
-  useGetPlaylistQuery,
-  useGetPlaylistsQuery,
-} from '@/store/api/libraryApi';
+  pickNextInQueue,
+  pickPrevInQueue,
+} from '@/lib/player/queueNavigation';
+import { useAudioPlayerControls } from '@/providers/AudioPlayerProvider';
+import { useAppDispatch, useAppSelector } from '@/store';
 import {
   cycleRepeatMode,
   toggleShuffle,
@@ -39,48 +37,21 @@ import {
 
 /**
  * Onglet Musique — lecteur + playlists / favoris / suivis.
+ * La file vient du player (playlist ouverte ou titre isolé).
  */
 export default function LectureScreen() {
   const dispatch = useAppDispatch();
   const { playTrack } = usePlayTrack();
   const { toggle } = useAudioPlayerControls();
-  const { track, isPlaying, needsPurchase, shuffle, repeatMode } =
+  const { track, isPlaying, needsPurchase, shuffle, repeatMode, queue } =
     useAppSelector((s) => s.player);
 
-  const { data: playlistsData, isLoading: loadingList } =
-    useGetPlaylistsQuery();
-  const activePlaylistId = playlistsData?.items[0]?.id;
-  const { data: playlistDetail, isLoading: loadingDetail } = useGetPlaylistQuery(
-    activePlaylistId ?? '',
-    { skip: !activePlaylistId },
-  );
-
-  const queueTracks = useMemo(() => {
-    if (!playlistDetail?.tracks) {
-      return [];
-    }
-    return playlistDetail.tracks
-      .map((item) => item.track)
-      .filter((t): t is NonNullable<typeof t> => Boolean(t))
-      .map(
-        (t): Track => ({
-          id: t.id,
-          title: t.title,
-          genre: t.genre,
-          price: t.price ?? null,
-          coverUrl: t.coverUrl,
-          artistId: t.artistId ?? '',
-          durationMs: t.durationMs,
-        }),
-      );
-  }, [playlistDetail]);
-
+  const queueTracks = queue;
   const cover =
     track?.coverUrl ??
     queueTracks[0]?.coverUrl ??
     homeMedia.selectionAbstract;
   const titleCount = queueTracks.length;
-  const loading = loadingList || loadingDetail;
 
   const onPlayPress = () => {
     if (track && !needsPurchase) {
@@ -89,80 +60,27 @@ export default function LectureScreen() {
     }
     const first = queueTracks[0];
     if (first) {
-      void playTrack(first);
+      void playTrack(first, { queue: queueTracks });
     }
   };
 
   const onPrev = () => {
-    if (queueTracks.length === 0) {
-      return;
-    }
-    if (repeatMode === 'one' && track) {
-      void playTrack(track);
-      return;
-    }
-    if (shuffle) {
-      const next = pickRandomTrack(queueTracks, track?.id);
-      if (next) {
-        void playTrack(next);
-      }
-      return;
-    }
-    if (!track) {
-      const last = queueTracks[queueTracks.length - 1];
-      if (last) {
-        void playTrack(last);
-      }
-      return;
-    }
-    const idx = queueTracks.findIndex((t) => t.id === track.id);
-    const prev =
-      idx <= 0
-        ? repeatMode === 'all'
-          ? queueTracks[queueTracks.length - 1]
-          : null
-        : queueTracks[idx - 1];
+    const prev = pickPrevInQueue(queueTracks, track?.id, {
+      shuffle,
+      repeatMode,
+    });
     if (prev) {
-      void playTrack(prev);
+      void playTrack(prev, { queue: queueTracks });
     }
   };
 
   const onNext = () => {
-    if (queueTracks.length === 0) {
-      return;
-    }
-    if (repeatMode === 'one' && track) {
-      void playTrack(track);
-      return;
-    }
-    if (shuffle) {
-      const next = pickRandomTrack(queueTracks, track?.id);
-      if (next) {
-        void playTrack(next);
-      }
-      return;
-    }
-    if (!track) {
-      const first = queueTracks[0];
-      if (first) {
-        void playTrack(first);
-      }
-      return;
-    }
-    const idx = queueTracks.findIndex((t) => t.id === track.id);
-    const nextIdx = idx + 1;
-    if (nextIdx < queueTracks.length) {
-      const next = queueTracks[nextIdx];
-      if (next) {
-        void playTrack(next);
-      }
-      return;
-    }
-    if (repeatMode === 'all') {
-      const first = queueTracks[0];
-      if (first) {
-        void playTrack(first);
-      }
+    const next = pickNextInQueue(queueTracks, track?.id, {
+      shuffle,
+      repeatMode,
+    });
+    if (next) {
+      void playTrack(next, { queue: queueTracks });
     }
   };
 
@@ -210,7 +128,7 @@ export default function LectureScreen() {
           <Text style={styles.nowSubtitle}>
             {track
               ? (track.artist?.displayName ?? track.genre ?? 'Himba')
-              : 'Ajoutez un titre depuis Explorer'}
+              : 'Ouvre une playlist ou choisis un titre'}
           </Text>
         </View>
 
@@ -283,18 +201,14 @@ export default function LectureScreen() {
           <Text style={styles.playlistTitle}>En cours</Text>
         </View>
 
-        {loading ? (
-          <Text className="text-himba-mist">Chargement…</Text>
-        ) : null}
-
-        {!loading && queueTracks.length === 0 ? (
+        {queueTracks.length === 0 ? (
           <View style={styles.emptyCard}>
             <View style={styles.emptyIcon}>
               <Text style={styles.emptyIconLabel}>♪</Text>
             </View>
             <Text style={styles.emptyTitle}>Aucun morceau en lecture</Text>
             <Text style={styles.emptyBody}>
-              Ajoute des morceaux depuis Explorer, ou choisis un favori plus bas.
+              Ouvre une playlist ci-dessous, ou choisis un titre dans Explorer.
             </Text>
             <Pressable
               onPress={() =>
@@ -310,21 +224,19 @@ export default function LectureScreen() {
               <Text style={styles.ctaLabel}>Explorer les morceaux</Text>
             </Pressable>
           </View>
-        ) : null}
-
-        {queueTracks.length > 0 ? (
+        ) : (
           <View className="gap-2">
             {queueTracks.map((t) => (
               <TrackRow
                 key={t.id}
                 track={t}
                 onPress={(item) => {
-                  void playTrack(item);
+                  void playTrack(item, { queue: queueTracks });
                 }}
               />
             ))}
           </View>
-        ) : null}
+        )}
 
         <View className="mt-2 gap-2">
           <Text
@@ -338,20 +250,6 @@ export default function LectureScreen() {
       </ScrollView>
     </SafeAreaView>
   );
-}
-
-function pickRandomTrack(tracks: Track[], excludeId?: string): Track | null {
-  if (tracks.length === 0) {
-    return null;
-  }
-  if (tracks.length === 1) {
-    return tracks[0] ?? null;
-  }
-  const pool = excludeId
-    ? tracks.filter((t) => t.id !== excludeId)
-    : tracks;
-  const pick = pool[Math.floor(Math.random() * pool.length)];
-  return pick ?? tracks[0] ?? null;
 }
 
 function repeatAccessibilityLabel(mode: RepeatMode): string {
@@ -390,18 +288,6 @@ const styles = StyleSheet.create({
   brandTag: {
     fontSize: 11,
     color: himbaColors.mist,
-  },
-  roundHeaderBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: himbaColors.earth,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  roundHeaderLabel: {
-    fontSize: 14,
-    color: himbaColors.ink,
   },
   titleRow: {
     flexDirection: 'row',

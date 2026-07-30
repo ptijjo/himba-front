@@ -12,6 +12,7 @@ import {
 import { AddToPlaylistModal } from '@/components/library/AddToPlaylistModal';
 import { himbaColors, homeMedia } from '@/constants/theme';
 import { getErrorMessage } from '@/lib/errors/apiError';
+import { openArtistProfile } from '@/lib/navigation/openProfile';
 import type { Follow } from '@/schemas/library';
 import type { Track } from '@/schemas/tracks';
 import {
@@ -143,16 +144,20 @@ export function FollowingTab({
             contentContainerStyle={styles.avatarsRow}
             renderItem={({ item }) => {
               const name = item.artist?.displayName ?? 'Artiste';
-              const cover = item.artist?.coverUrl;
+              // Uniquement la photo de profil (User.avatarUrl) — pas album / titre
+              const photo = item.artist?.avatarUrl ?? null;
               const selected =
                 activeArtistId != null
                   ? activeArtistId === item.artistId
                   : false;
               return (
                 <Pressable
-                  onPress={() => setActiveArtistId(item.artistId)}
+                  onPress={() => {
+                    setActiveArtistId(item.artistId);
+                    openArtistProfile(item.artistId);
+                  }}
                   accessibilityRole="button"
-                  accessibilityLabel={name}
+                  accessibilityLabel={`Voir le profil de ${name}`}
                   accessibilityState={{ selected }}
                   style={styles.avatarItem}
                 >
@@ -162,11 +167,12 @@ export function FollowingTab({
                       selected ? styles.avatarRingActive : null,
                     ]}
                   >
-                    {cover ? (
+                    {photo ? (
                       <Image
-                        source={{ uri: cover }}
+                        source={{ uri: photo }}
                         style={styles.avatarImage}
                         contentFit="cover"
+                        accessibilityLabel={`Photo de profil de ${name}`}
                       />
                     ) : (
                       <View style={styles.avatarFallback}>

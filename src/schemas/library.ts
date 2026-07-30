@@ -28,7 +28,10 @@ export const followSchema = z.object({
     .object({
       id: z.string(),
       displayName: z.string(),
+      /** Cover / bannière artiste (pas la photo de profil). */
       coverUrl: z.string().nullable().optional(),
+      /** Photo de profil du compte User lié. */
+      avatarUrl: z.string().nullable().optional(),
     })
     .optional(),
 });
@@ -39,6 +42,8 @@ export const playlistSchema = z.object({
   name: z.string(),
   createdAt: z.union([z.string(), z.coerce.date()]).optional(),
   updatedAt: z.union([z.string(), z.coerce.date()]).optional(),
+  /** Nombre de titres — liste GET /playlists. */
+  trackCount: z.number().optional(),
 });
 
 export const playlistTrackItemSchema = z.object({
