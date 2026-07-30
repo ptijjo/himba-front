@@ -1,4 +1,7 @@
 import {
+  isAllowedAudioMime,
+  isAllowedAudioName,
+  normalizeAudioUploadMime,
   studioTrackSchema,
   toPrice,
   toUpdateTrackPrice,
@@ -128,5 +131,36 @@ describe('updateTrackSchema', () => {
     if (parsed.success) {
       expect(toUpdateTrackPrice(parsed.data)).toBe(2.5);
     }
+  });
+});
+
+describe('audio formats (M4A / AAC / MP3)', () => {
+  it('accepte MIME et extensions API', () => {
+    expect(isAllowedAudioMime('audio/mpeg')).toBe(true);
+    expect(isAllowedAudioMime('audio/mp3')).toBe(true);
+    expect(isAllowedAudioName('song.mp3')).toBe(true);
+    expect(isAllowedAudioName('song.wav')).toBe(false);
+  });
+
+  it('normalise le MIME upload selon l’extension', () => {
+    expect(normalizeAudioUploadMime('hit.mp3', 'application/octet-stream')).toBe(
+      'audio/mpeg',
+    );
+  });
+
+  it('accepte un titre studio avec fichier mp3', () => {
+    const parsed = studioTrackSchema.safeParse({
+      title: 'Rebelle',
+      artistName: 'FOFO',
+      genre: 'AFRO',
+      albumMode: 'none',
+      pricing: 'free',
+      audio: {
+        uri: 'file:///tmp/song.mp3',
+        name: 'song.mp3',
+        mimeType: 'audio/mpeg',
+      },
+    });
+    expect(parsed.success).toBe(true);
   });
 });

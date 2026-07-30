@@ -32,6 +32,7 @@ import { TRACK_GENRES, type TrackGenre } from '@/schemas/genres';
 import {
   isAllowedAudioMime,
   isAllowedAudioName,
+  normalizeAudioUploadMime,
   studioTrackSchema,
   toPrice,
   type StudioTrackValues,
@@ -301,7 +302,7 @@ function TrackPublishPanel({
     const name = asset.name || 'audio.m4a';
     if (!isAllowedAudioMime(mime) && !isAllowedAudioName(name)) {
       setFormError(
-        'Format accepté : fichier .m4a ou .aac (AAC-LC). Pas de MP3 / WAV.',
+        'Format accepté : .m4a, .aac ou .mp3. Pas de WAV / FLAC.',
       );
       setValue('audio', null, { shouldValidate: true });
       return;
@@ -328,13 +329,7 @@ function TrackPublishPanel({
     }
 
     // MIME client souvent wrong (octet-stream) — normaliser selon extension
-    const lower = name.toLowerCase();
-    const normalizedMime =
-      lower.endsWith('.m4a') || lower.endsWith('.mp4')
-        ? 'audio/mp4'
-        : lower.endsWith('.aac')
-          ? 'audio/aac'
-          : mime || 'audio/mp4';
+    const normalizedMime = normalizeAudioUploadMime(name, mime);
 
     setValue(
       'audio',
@@ -357,7 +352,7 @@ function TrackPublishPanel({
       return;
     }
     if (!values.audio) {
-      setFormError('Fichier audio M4A (AAC-LC) requis.');
+      setFormError('Fichier audio M4A / AAC / MP3 requis.');
       return;
     }
 
@@ -406,14 +401,14 @@ function TrackPublishPanel({
         <Text style={styles.heroEyebrow}>STUDIO HIMBA</Text>
         <Text style={styles.heroTitle}>Publie ton prochain son.</Text>
         <Text style={styles.heroLede}>
-          Audio M4A (AAC-LC), genre, album optionnel — synchronisé avec l’API.
+          Audio M4A / AAC / MP3, genre, album optionnel — synchronisé avec l’API.
         </Text>
       </View>
 
       <View style={styles.formCard}>
         <View className="gap-2">
           <Text className="text-sm font-medium text-himba-mist">
-            Fichier audio (M4A / AAC-LC)
+            Fichier audio (M4A / AAC / MP3)
           </Text>
           <Pressable
             onPress={() => {
