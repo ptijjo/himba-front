@@ -7,7 +7,9 @@ type HimbaLogoProps = {
   size?: number;
 };
 
-/** Logo in-app (PNG transparent) — icône store = Logo.jpg via app.json. */
+/** Logo in-app (PNG transparent).
+ * Store / splash : icon.png, adaptive-icon.png, splash-icon.png via app.json.
+ */
 export function HimbaLogo({ size = 40 }: HimbaLogoProps) {
   return (
     <Image

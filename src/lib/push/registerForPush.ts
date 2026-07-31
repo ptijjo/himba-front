@@ -1,10 +1,10 @@
 /**
  * 1. Permission notifications
- * 2. Canal Android « sorties »
+ * 2. Canal Android « sorties » (HIGH + son)
  * 3. ExpoPushToken (projectId EAS)
  * 4. POST /devices/push-token (appelant)
  *
- * Push distant retiré d’Expo Go (SDK 53+) — uniquement en development / production build.
+ * Push distant retiré d’Expo Go (SDK 53+) — synchro Actus via polling + notif locale.
  */
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import * as Notifications from 'expo-notifications';
@@ -12,6 +12,8 @@ import { Platform } from 'react-native';
 
 import { setStoredPushToken } from '@/lib/push/pushTokenStorage';
 import type { UpsertPushTokenValues } from '@/schemas/notifications';
+
+export const SORTIES_CHANNEL_ID = 'sorties';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -23,7 +25,7 @@ Notifications.setNotificationHandler({
   }),
 });
 
-function isExpoGo(): boolean {
+export function isExpoGo(): boolean {
   return Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 }
 
@@ -35,13 +37,38 @@ function getEasProjectId(): string | undefined {
 }
 
 export async function ensureAndroidSortiesChannel(): Promise<void> {
-  if (Platform.OS !== 'android' || isExpoGo()) {
+  if (Platform.OS !== 'android') {
     return;
   }
-  await Notifications.setNotificationChannelAsync('sorties', {
+  await Notifications.setNotificationChannelAsync(SORTIES_CHANNEL_ID, {
     name: 'Sorties',
-    importance: Notifications.AndroidImportance.DEFAULT,
+    importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 250, 250, 250],
+    sound: 'default',
+    enableVibrate: true,
+  });
+}
+
+/**
+ * Bannière locale + son — utiliséée quand une nouvelle Actu arrive (polling / push).
+ */
+export async function presentSortieAlert(input: {
+  title: string;
+  body: string;
+  data?: Record<string, unknown>;
+}): Promise<void> {
+  await ensureAndroidSortiesChannel();
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: input.title,
+      body: input.body,
+      sound: true,
+      data: input.data,
+      ...(Platform.OS === 'android'
+        ? { channelId: SORTIES_CHANNEL_ID }
+        : {}),
+    },
+    trigger: null,
   });
 }
 

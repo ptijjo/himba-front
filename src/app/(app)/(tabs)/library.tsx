@@ -36,8 +36,8 @@ import {
 } from '@/store/slices/playerSlice';
 
 /**
- * Onglet Musique — lecteur (cover + contrôles + file).
- * Playlists / favoris / suivis → page Bibliothèque dédiée.
+ * Lecteur plein (cover + contrôles + file).
+ * Accès via mini-lecteur / lecture playlist — pas l’entrée de l’onglet Musique.
  */
 export default function LectureScreen() {
   const dispatch = useAppDispatch();
@@ -69,7 +69,7 @@ export default function LectureScreen() {
   }, [queueTracks, track?.id, shuffle, repeatMode]);
 
   const openBibliotheque = () => {
-    router.push('/(app)/(tabs)/bibliotheque' as Href);
+    router.replace('/(app)/(tabs)/bibliotheque' as Href);
   };
 
   const onPlayPress = () => {
@@ -121,11 +121,11 @@ export default function LectureScreen() {
           <Pressable
             onPress={openBibliotheque}
             accessibilityRole="button"
-            accessibilityLabel="Ouvrir la bibliothèque"
+            accessibilityLabel="Retour à la bibliothèque"
             hitSlop={8}
             style={styles.libraryLink}
           >
-            <Text style={styles.libraryLinkLabel}>Bibliothèque</Text>
+            <Text style={styles.libraryLinkLabel}>← Bibliothèque</Text>
           </Pressable>
         </View>
 

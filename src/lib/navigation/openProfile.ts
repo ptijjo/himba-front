@@ -20,6 +20,21 @@ export function openFavorites(): void {
   router.push('/(app)/(tabs)/favorites' as Href);
 }
 
+/** Albums aimés (bibliothèque). */
+export function openLibraryAlbums(): void {
+  router.push('/(app)/(tabs)/library-albums' as Href);
+}
+
+/** Artistes suivis (bibliothèque). */
+export function openLibraryArtists(): void {
+  router.push('/(app)/(tabs)/library-artists' as Href);
+}
+
+/** Détail album public. */
+export function openAlbum(albumId: string): void {
+  router.push(`/(app)/(tabs)/album/${albumId}` as Href);
+}
+
 /** Anciennes playlists auto « Découverte … » — plus utilisées. */
 export function isDiscoveryPlaylistName(name: string): boolean {
   return /^découverte\b/i.test(name.trim());

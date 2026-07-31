@@ -2,14 +2,14 @@
   "expo": {
     "name": "Himba",
     "slug": "himba",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "orientation": "portrait",
-    "icon": "./assets/images/Logo.jpg",
+    "icon": "./assets/images/icon.png",
     "scheme": "himba",
     "userInterfaceStyle": "dark",
     "owner": "ptijjo",
     "ios": {
-      "icon": "./assets/images/Logo.jpg",
+      "icon": "./assets/images/icon-ios.png",
       "bundleIdentifier": "fr.cellulenoire.himba",
       "config": {
         "usesNonExemptEncryption": false
@@ -20,10 +20,10 @@
     },
     "android": {
       "package": "fr.cellulenoire.himba",
-      "versionCode": 5,
+      "versionCode": 6,
       "adaptiveIcon": {
         "backgroundColor": "#0B0618",
-        "foregroundImage": "./assets/images/Logo.jpg"
+        "foregroundImage": "./assets/images/adaptive-icon.png"
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [
@@ -36,7 +36,7 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/Logo.jpg"
+      "favicon": "./assets/images/icon.png"
     },
     "plugins": [
       "expo-router",
@@ -44,8 +44,8 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#0B0618",
-          "image": "./assets/images/Logo.jpg",
-          "imageWidth": 120
+          "image": "./assets/images/logo_dans_app.png",
+          "imageWidth": 200
         }
       ],
       "expo-secure-store",
@@ -54,7 +54,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/Logo.jpg",
+          "icon": "./assets/images/adaptive-icon.png",
           "color": "#E85D04",
           "defaultChannel": "sorties"
         }

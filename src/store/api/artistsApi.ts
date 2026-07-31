@@ -38,6 +38,7 @@ export const artistsApi = baseApi.injectEndpoints({
     }),
     getArtist: build.query<Artist, string>({
       query: (id) => `/artists/${id}`,
+      providesTags: (_result, _error, id) => [{ type: 'Artists', id }],
       transformResponse: (response: unknown) => {
         const parsed = artistSchema.safeParse(response);
         if (!parsed.success) {

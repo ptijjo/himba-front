@@ -3,11 +3,13 @@
  */
 import {
   createPlaylistSchema,
+  albumFavoriteSchema,
   favoriteSchema,
   followSchema,
   playlistDetailSchema,
   playlistListSchema,
   playlistSchema,
+  type AlbumFavorite,
   type CreatePlaylistValues,
   type Favorite,
   type Follow,
@@ -44,6 +46,41 @@ export const libraryApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ['Favorites'],
     }),
+    getAlbumFavorites: build.query<AlbumFavorite[], void>({
+      query: () => '/library/album-favorites',
+      providesTags: ['AlbumFavorites'],
+      transformResponse: (response: unknown) => {
+        const parsed = z.array(albumFavoriteSchema).safeParse(response);
+        if (!parsed.success) {
+          throw new Error('Favoris albums invalides');
+        }
+        return parsed.data;
+      },
+    }),
+    addAlbumFavorite: build.mutation<AlbumFavorite, string>({
+      query: (albumId) => ({
+        url: `/library/album-favorites/${albumId}`,
+        method: 'POST',
+      }),
+      invalidatesTags: ['AlbumFavorites'],
+      transformResponse: (response: unknown) => {
+        // POST renvoie la ligne Prisma brute (sans include album)
+        const parsed = albumFavoriteSchema
+          .omit({ album: true })
+          .safeParse(response);
+        if (!parsed.success) {
+          throw new Error('Favori album invalide');
+        }
+        return parsed.data;
+      },
+    }),
+    removeAlbumFavorite: build.mutation<void, string>({
+      query: (albumId) => ({
+        url: `/library/album-favorites/${albumId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['AlbumFavorites'],
+    }),
     getFollows: build.query<Follow[], void>({
       query: () => '/library/follows',
       providesTags: ['Follows'],
@@ -60,7 +97,7 @@ export const libraryApi = baseApi.injectEndpoints({
         url: `/library/follows/${artistId}`,
         method: 'POST',
       }),
-      invalidatesTags: ['Follows'],
+      invalidatesTags: ['Follows', 'Artists'],
       transformResponse: (response: unknown) => {
         const parsed = followSchema.safeParse(response);
         if (!parsed.success) {
@@ -74,7 +111,7 @@ export const libraryApi = baseApi.injectEndpoints({
         url: `/library/follows/${artistId}`,
         method: 'DELETE',
       }),
-      invalidatesTags: ['Follows'],
+      invalidatesTags: ['Follows', 'Artists'],
     }),
     getPlaylists: build.query<
       { items: Playlist[]; nextCursor: string | null },
@@ -145,6 +182,9 @@ export const {
   useGetFavoritesQuery,
   useAddFavoriteMutation,
   useRemoveFavoriteMutation,
+  useGetAlbumFavoritesQuery,
+  useAddAlbumFavoriteMutation,
+  useRemoveAlbumFavoriteMutation,
   useGetFollowsQuery,
   useFollowArtistMutation,
   useUnfollowArtistMutation,

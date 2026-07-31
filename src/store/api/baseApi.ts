@@ -83,9 +83,11 @@ export const baseApi = createApi({
     'Albums',
     'Recommendations',
     'Favorites',
+    'AlbumFavorites',
     'Follows',
     'Playlists',
     'Notifications',
+    'Artists',
   ],
   endpoints: () => ({}),
 });

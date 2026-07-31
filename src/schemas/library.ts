@@ -19,6 +19,32 @@ export const favoriteSchema = z.object({
   track: favoriteTrackSchema.optional(),
 });
 
+export const albumFavoriteAlbumSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  coverUrl: z.string().nullable().optional(),
+  artistId: z.string().optional(),
+  artist: z
+    .object({
+      id: z.string(),
+      displayName: z.string(),
+    })
+    .optional(),
+  _count: z
+    .object({
+      tracks: z.number(),
+    })
+    .optional(),
+});
+
+export const albumFavoriteSchema = z.object({
+  id: z.string(),
+  userId: z.string(),
+  albumId: z.string(),
+  createdAt: z.union([z.string(), z.coerce.date()]).optional(),
+  album: albumFavoriteAlbumSchema.optional(),
+});
+
 export const followSchema = z.object({
   id: z.string(),
   followerId: z.string(),
@@ -44,6 +70,8 @@ export const playlistSchema = z.object({
   updatedAt: z.union([z.string(), z.coerce.date()]).optional(),
   /** Nombre de titres — liste GET /playlists. */
   trackCount: z.number().optional(),
+  /** Jusqu’à 4 covers pour mosaïque bibliothèque. */
+  coverUrls: z.array(z.string()).max(4).optional(),
 });
 
 export const playlistTrackItemSchema = z.object({
@@ -68,6 +96,7 @@ export const createPlaylistSchema = z.object({
 });
 
 export type Favorite = z.infer<typeof favoriteSchema>;
+export type AlbumFavorite = z.infer<typeof albumFavoriteSchema>;
 export type Follow = z.infer<typeof followSchema>;
 export type Playlist = z.infer<typeof playlistSchema>;
 export type PlaylistDetail = z.infer<typeof playlistDetailSchema>;

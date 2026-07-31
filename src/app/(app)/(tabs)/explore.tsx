@@ -38,7 +38,9 @@ function isUnread(n: AppNotification): boolean {
  * Onglet Actus — sorties des artistes suivis (in-app + miroir push).
  */
 export default function ActusScreen() {
-  const { data, isLoading, isFetching, refetch } = useGetNotificationsQuery();
+  const { data, isLoading, isFetching, refetch } = useGetNotificationsQuery({
+    limit: 50,
+  });
   const [markRead] = useMarkNotificationReadMutation();
   const [markAllRead, { isLoading: markingAll }] =
     useMarkAllNotificationsReadMutation();

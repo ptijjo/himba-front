@@ -26,18 +26,18 @@ export function TrackRow({
   const artistName = track.artist?.displayName ?? track.genre ?? 'Titre';
 
   return (
-    <View
+    <Pressable
+      onPress={() => onPress(track)}
+      accessibilityRole="button"
+      accessibilityLabel={`Écouter ${track.title}`}
+      accessibilityState={{ selected: isActive }}
       className={`flex-row items-center gap-3 rounded-2xl p-3 ${
         isActive
           ? 'border border-himba-ochre bg-himba-earth'
           : 'bg-himba-earth'
       }`}
     >
-      <Pressable
-        onPress={() => onPress(track)}
-        accessibilityRole="button"
-        accessibilityLabel={`Écouter ${track.title}`}
-        accessibilityState={{ selected: isActive }}
+      <View
         className="h-14 w-14 overflow-hidden rounded-xl"
         style={{ backgroundColor: himbaColors.canopy }}
       >
@@ -48,22 +48,16 @@ export function TrackRow({
             contentFit="cover"
           />
         ) : null}
-      </Pressable>
+      </View>
       <View className="flex-1 gap-0.5">
-        <Pressable
-          onPress={() => onPress(track)}
-          accessibilityRole="button"
-          accessibilityLabel={`Écouter ${track.title}`}
+        <Text
+          className={`font-semibold ${
+            isActive ? 'text-himba-ember' : 'text-himba-ink'
+          }`}
+          numberOfLines={1}
         >
-          <Text
-            className={`font-semibold ${
-              isActive ? 'text-himba-ember' : 'text-himba-ink'
-            }`}
-            numberOfLines={1}
-          >
-            {track.title}
-          </Text>
-        </Pressable>
+          {track.title}
+        </Text>
         <Pressable
           onPress={() => {
             if (track.artistId) {
@@ -83,20 +77,9 @@ export function TrackRow({
           </Text>
         </Pressable>
       </View>
-      <Pressable
-        onPress={() => onPress(track)}
-        accessibilityRole="button"
-        accessibilityLabel={`Écouter ${track.title}`}
-        hitSlop={8}
-      >
-        {trailing ? (
-          <Text className="text-xs text-himba-ember">{trailing}</Text>
-        ) : (
-          <Text className="text-himba-ember">
-            {isActive && isPlaying ? '❚❚' : '▶'}
-          </Text>
-        )}
-      </Pressable>
-    </View>
+      {trailing ? (
+        <Text className="text-xs text-himba-ember">{trailing}</Text>
+      ) : null}
+    </Pressable>
   );
 }

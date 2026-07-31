@@ -11,21 +11,22 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MiniPlayer } from '@/components/player/MiniPlayer';
 import { himbaColors } from '@/constants/theme';
+import { useUnreadNotificationsCount } from '@/hooks/useNotificationsLiveSync';
 import { canPublishMusic } from '@/lib/auth/canPublishMusic';
 import { useAppSelector } from '@/store';
 
-const VISIBLE_TABS = ['index', 'library', 'explore', 'profile'] as const;
+const VISIBLE_TABS = ['index', 'bibliotheque', 'explore', 'profile'] as const;
 
 const TAB_LABELS: Record<(typeof VISIBLE_TABS)[number], string> = {
   index: 'Accueil',
-  library: 'Musique',
+  bibliotheque: 'Musique',
   explore: 'Actus',
   profile: 'Profil',
 };
 
 /**
- * Tab bar — Accueil | Musique | ＋ | Actus | Profil (couleurs Himba).
- * Mini-lecteur collé juste au-dessus (masqué sur l’onglet Musique = lecteur plein).
+ * Tab bar — Accueil | Musique (bibliothèque) | ＋ | Actus | Profil.
+ * Lecteur plein = route cachée `library` (via mini-lecteur).
  */
 export function HimbaTabBar({
   state,
@@ -35,6 +36,7 @@ export function HimbaTabBar({
   const insets = useSafeAreaInsets();
   const role = useAppSelector((s) => s.auth.user?.role);
   const hasTrack = useAppSelector((s) => s.player.track != null);
+  const unreadActus = useUnreadNotificationsCount();
   const showPublish = canPublishMusic(role);
   const bottomPad = Math.max(insets.bottom, 8);
   const focusedRoute = state.routes[state.index]?.name;
@@ -42,9 +44,12 @@ export function HimbaTabBar({
   const showMiniPlayer = focusedRoute !== 'library' && hasTrack;
   // Sous-écrans liés à Musique → garder l’onglet Musique actif
   const musicSectionFocused =
-    focusedRoute === 'library' ||
     focusedRoute === 'bibliotheque' ||
+    focusedRoute === 'library' ||
     focusedRoute === 'favorites' ||
+    focusedRoute === 'library-albums' ||
+    focusedRoute === 'library-artists' ||
+    focusedRoute === 'album/[id]' ||
     focusedRoute === 'playlist/[id]';
 
   // Studio / édition → onglet Profil actif
@@ -68,7 +73,7 @@ export function HimbaTabBar({
     }
     const index = state.routes.findIndex((r) => r.key === route.key);
     const focused =
-      routeName === 'library'
+      routeName === 'bibliotheque'
         ? musicSectionFocused
         : routeName === 'profile'
           ? profileSectionFocused
@@ -76,7 +81,12 @@ export function HimbaTabBar({
     const { options } = descriptors[route.key] ?? {
       options: {},
     };
-    const color = focused ? himbaColors.ember : himbaColors.mist;
+    const color =
+      routeName === 'explore' && unreadActus > 0 && !focused
+        ? himbaColors.ember
+        : focused
+          ? himbaColors.ember
+          : himbaColors.mist;
     const label =
       TAB_LABELS[routeName as (typeof VISIBLE_TABS)[number]] ??
       options.title ??
@@ -91,9 +101,9 @@ export function HimbaTabBar({
       if (event.defaultPrevented) {
         return;
       }
-      // Depuis sous-écrans Musique → tap Musique ouvre le lecteur
-      if (routeName === 'library' && musicSectionFocused && focusedRoute !== 'library') {
-        navigation.navigate('library');
+      // Tap Musique → toujours la bibliothèque (pas le lecteur vide)
+      if (routeName === 'bibliotheque') {
+        navigation.navigate('bibliotheque');
         return;
       }
       if (
@@ -136,9 +146,26 @@ export function HimbaTabBar({
         hitSlop={4}
       >
         <View style={styles.tabInner}>
-          {icon}
+          <View style={styles.iconWrap}>
+            {icon}
+            {routeName === 'explore' && unreadActus > 0 ? (
+              <View
+                style={styles.badge}
+                accessibilityLabel={`${unreadActus} notification${unreadActus > 1 ? 's' : ''} non lue${unreadActus > 1 ? 's' : ''}`}
+              >
+                <Text style={styles.badgeText}>
+                  {unreadActus > 99 ? '99+' : String(unreadActus)}
+                </Text>
+              </View>
+            ) : null}
+          </View>
           <Text
-            style={[styles.label, focused ? styles.labelActive : null]}
+            style={[
+              styles.label,
+              focused || (routeName === 'explore' && unreadActus > 0)
+                ? styles.labelActive
+                : null,
+            ]}
             numberOfLines={1}
           >
             {label}
@@ -209,6 +236,31 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 4,
     minHeight: 48,
+  },
+  iconWrap: {
+    width: 28,
+    height: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badge: {
+    position: 'absolute',
+    top: -6,
+    right: -10,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    backgroundColor: himbaColors.alert,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: himbaColors.surface,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: himbaColors.ink,
   },
   label: {
     fontSize: 10,

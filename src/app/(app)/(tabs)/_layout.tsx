@@ -78,7 +78,7 @@ export default function AppTabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="library"
+        name="bibliotheque"
         options={{
           title: 'Musique',
           tabBarAccessibilityLabel: 'Ma musique',
@@ -86,10 +86,10 @@ export default function AppTabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="bibliotheque"
+        name="library"
         options={{
           href: null,
-          title: 'Bibliothèque',
+          title: 'Lecture',
         }}
       />
       <Tabs.Screen
@@ -97,6 +97,27 @@ export default function AppTabsLayout() {
         options={{
           href: null,
           title: 'Favoris',
+        }}
+      />
+      <Tabs.Screen
+        name="library-albums"
+        options={{
+          href: null,
+          title: 'Albums',
+        }}
+      />
+      <Tabs.Screen
+        name="library-artists"
+        options={{
+          href: null,
+          title: 'Artistes',
+        }}
+      />
+      <Tabs.Screen
+        name="album/[id]"
+        options={{
+          href: null,
+          title: 'Album',
         }}
       />
       <Tabs.Screen

@@ -17,7 +17,7 @@ import { himbaColors } from '@/constants/theme';
 import { usePlayTrack } from '@/hooks/usePlayTrack';
 import { getErrorMessage } from '@/lib/errors/apiError';
 import { openLecturePlayer } from '@/lib/navigation/openLecturePlayer';
-import { openArtistProfile } from '@/lib/navigation/openProfile';
+import { openAlbum, openArtistProfile } from '@/lib/navigation/openProfile';
 import { useGetAlbumsQuery } from '@/store/api/albumsApi';
 import { useGetArtistQuery } from '@/store/api/artistsApi';
 import {
@@ -176,6 +176,21 @@ export default function ArtistPublicProfileScreen() {
               )}
             </View>
             <Text style={styles.name}>{displayName}</Text>
+            <View style={styles.statsRow}>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>
+                  {artist?.followersCount ?? 0}
+                </Text>
+                <Text style={styles.statLabel}>abonnés</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>
+                  {artist?.followingCount ?? 0}
+                </Text>
+                <Text style={styles.statLabel}>abonnements</Text>
+              </View>
+            </View>
             {bio ? (
               <Text style={styles.bio} numberOfLines={4}>
                 {bio}
@@ -199,7 +214,13 @@ export default function ArtistPublicProfileScreen() {
 
         <Section title="Albums" loading={loadingAlbums} empty={albums.length === 0}>
           {albums.map((album) => (
-            <View key={album.id} style={styles.albumRow}>
+            <Pressable
+              key={album.id}
+              onPress={() => openAlbum(album.id)}
+              accessibilityRole="button"
+              accessibilityLabel={`Album ${album.title}`}
+              style={styles.albumRow}
+            >
               <View style={styles.albumCover}>
                 {album.coverUrl ? (
                   <Image
@@ -218,7 +239,7 @@ export default function ArtistPublicProfileScreen() {
                   {(album._count?.tracks ?? 0) > 1 ? 's' : ''}
                 </Text>
               </View>
-            </View>
+            </Pressable>
           ))}
         </Section>
 
@@ -287,7 +308,6 @@ export default function ArtistPublicProfileScreen() {
                 <Text className="flex-1 font-semibold text-himba-ink">
                   {name}
                 </Text>
-                <Text className="text-himba-ember">→</Text>
               </Pressable>
             );
           })}
@@ -368,6 +388,33 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: himbaColors.ink,
     textAlign: 'center',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    marginTop: 4,
+    marginBottom: 2,
+  },
+  statItem: {
+    alignItems: 'center',
+    minWidth: 72,
+  },
+  statValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: himbaColors.ink,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: himbaColors.mist,
+  },
+  statDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: himbaColors.ochre,
+    opacity: 0.5,
   },
   bio: {
     marginTop: 4,

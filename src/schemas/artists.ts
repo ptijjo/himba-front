@@ -13,6 +13,10 @@ export const artistSchema = z.object({
   coverUrl: z.string().nullable().optional(),
   /** Photo de profil User liée. */
   avatarUrl: z.string().nullable().optional(),
+  /** Nombre de personnes qui suivent cet artiste. */
+  followersCount: z.number().int().nonnegative().optional(),
+  /** Nombre d’artistes suivis par ce compte. */
+  followingCount: z.number().int().nonnegative().optional(),
   createdAt: z.union([z.string(), z.coerce.date()]).optional(),
   updatedAt: z.union([z.string(), z.coerce.date()]).optional(),
 });

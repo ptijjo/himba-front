@@ -1,3 +1,6 @@
+// Doit rester en premier : masque le LogBox push sous Expo Go avant expo-notifications
+import '@/lib/push/silenceExpoGoPushWarning';
+
 import { Literata_700Bold, useFonts } from '@expo-google-fonts/literata';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -9,6 +12,7 @@ import { Provider } from 'react-redux';
 import { himbaColors } from '@/constants/theme';
 import { useAuthHydration } from '@/hooks/useAuthHydration';
 import { useNotificationOpenHandler } from '@/hooks/useNotificationOpenHandler';
+import { useNotificationsLiveSync } from '@/hooks/useNotificationsLiveSync';
 import { usePushRegistration } from '@/hooks/usePushRegistration';
 import { AudioPlayerProvider } from '@/providers/AudioPlayerProvider';
 import { store } from '@/store';
@@ -23,6 +27,7 @@ SplashScreen.preventAutoHideAsync();
 function RootNavigator() {
   useAuthHydration();
   usePushRegistration();
+  useNotificationsLiveSync();
   useNotificationOpenHandler();
 
   return (
@@ -56,12 +61,12 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <Provider store={store}>
+    <Provider store={store}>
+      <GestureHandlerRootView style={{ flex: 1 }}>
         <AudioPlayerProvider>
           <RootNavigator />
         </AudioPlayerProvider>
-      </Provider>
-    </GestureHandlerRootView>
+      </GestureHandlerRootView>
+    </Provider>
   );
 }

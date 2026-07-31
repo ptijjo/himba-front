@@ -1,9 +1,7 @@
 /**
- * Tap notif système (app background / killed) → profil artiste.
- * Une seule navigation par identifiant de notif (évite re-open à chaque cold start).
- * No-op sous Expo Go (push distant indisponible).
+ * Tap notif (locale ou push) → profil artiste.
+ * Une seule navigation par identifiant de notif.
  */
-import Constants, { ExecutionEnvironment } from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import { useEffect, useRef } from 'react';
 
@@ -11,10 +9,6 @@ import { openArtistProfile } from '@/lib/navigation/openProfile';
 import { notificationDataSchema } from '@/schemas/notifications';
 
 const handledResponseIds = new Set<string>();
-
-function isExpoGo(): boolean {
-  return Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
-}
 
 function navigateFromNotificationData(raw: unknown): void {
   const parsed = notificationDataSchema.safeParse(raw);
@@ -42,10 +36,6 @@ export function useNotificationOpenHandler() {
   const coldStartDone = useRef(false);
 
   useEffect(() => {
-    if (isExpoGo()) {
-      return;
-    }
-
     const sub = Notifications.addNotificationResponseReceivedListener(
       (response) => {
         handleResponse(response);
