@@ -1,0 +1,332 @@
+diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
+index 04486e2..1a0850a 100644
+--- a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
++++ b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
+@@ -134,40 +134,10 @@ class AudioControlsService : MediaSessionService() {
+ 
+   private fun updateSessionCustomLayout(isPlaying: Boolean) {
+     val session = mediaSession ?: return
+-    val customLayout = mutableListOf<CommandButton>()
+-
+-    // Add seek backward button if enabled
+-    if (currentOptions?.showSeekBackward == true) {
+-      customLayout.add(
+-        CommandButton.Builder(CommandButton.ICON_SKIP_BACK)
+-          .setDisplayName("Seek Backward")
+-          .setEnabled(true)
+-          .setSessionCommand(SessionCommand(ACTION_SEEK_BACKWARD, Bundle.EMPTY))
+-          .build()
+-      )
+-    }
+-
+-    // Add play/pause button (always present)
+-    customLayout.add(
+-      CommandButton.Builder(if (isPlaying) CommandButton.ICON_PAUSE else CommandButton.ICON_PLAY)
+-        .setDisplayName(if (isPlaying) "Pause" else "Play")
+-        .setEnabled(true)
+-        .setPlayerCommand(Player.COMMAND_PLAY_PAUSE)
+-        .build()
+-    )
+-
+-    // Add seek forward button if enabled
+-    if (currentOptions?.showSeekForward == true) {
+-      customLayout.add(
+-        CommandButton.Builder(CommandButton.ICON_SKIP_FORWARD)
+-          .setDisplayName("Seek Forward")
+-          .setEnabled(true)
+-          .setSessionCommand(SessionCommand(ACTION_SEEK_FORWARD, Bundle.EMPTY))
+-          .build()
+-      )
+-    }
+-
+-    session.setCustomLayout(customLayout)
++    // Boutons custom ICON_PREVIOUS/NEXT (pas COMMAND_SEEK_* → pas d’icônes Samsung rewind)
++    val buttons = buildTransportButtons(isPlaying)
++    session.setCustomLayout(buttons)
++    session.setMediaButtonPreferences(buttons)
+   }
+ 
+   private fun postOrStartForegroundNotification(startInForeground: Boolean) {
+@@ -222,7 +192,7 @@ class AudioControlsService : MediaSessionService() {
+     if (player != null) {
+       mediaSession?.release()
+ 
+-      val session = MediaSession.Builder(this, player.ref)
++      val session = MediaSession.Builder(this, SeekAsSkipPlayer(player.ref))
+         .setCallback(AudioMediaSessionCallback())
+         .build()
+ 
+@@ -351,6 +321,53 @@ class AudioControlsService : MediaSessionService() {
+ 
+     fun getInstance(): AudioControlsService? = instance
+ 
++    /**
++     * Layout transport : prev | play/pause | next — icônes Deezer (ICON_PREVIOUS/NEXT).
++     * SessionCommand custom pour qu’Android 13+ n’impose pas les flèches rewind.
++     */
++    @JvmStatic
++    fun buildTransportButtons(isPlaying: Boolean): List<CommandButton> {
++      val opts = instance?.currentOptions
++      val showPrev = opts?.showSeekBackward ?: true
++      val showNext = opts?.showSeekForward ?: true
++      val buttons = mutableListOf<CommandButton>()
++
++      if (showPrev) {
++        buttons.add(
++          CommandButton.Builder(CommandButton.ICON_PREVIOUS)
++            .setDisplayName("Previous")
++            .setEnabled(true)
++            .setSessionCommand(SessionCommand(ACTION_SEEK_BACKWARD, Bundle.EMPTY))
++            .setSlots(CommandButton.SLOT_BACK)
++            .build()
++        )
++      }
++
++      buttons.add(
++        CommandButton.Builder(
++          if (isPlaying) CommandButton.ICON_PAUSE else CommandButton.ICON_PLAY
++        )
++          .setDisplayName(if (isPlaying) "Pause" else "Play")
++          .setEnabled(true)
++          .setPlayerCommand(Player.COMMAND_PLAY_PAUSE)
++          .setSlots(CommandButton.SLOT_CENTRAL)
++          .build()
++      )
++
++      if (showNext) {
++        buttons.add(
++          CommandButton.Builder(CommandButton.ICON_NEXT)
++            .setDisplayName("Next")
++            .setEnabled(true)
++            .setSessionCommand(SessionCommand(ACTION_SEEK_FORWARD, Bundle.EMPTY))
++            .setSlots(CommandButton.SLOT_FORWARD)
++            .build()
++        )
++      }
++
++      return buttons
++    }
++
+     fun setActivePlayer(
+       context: Context,
+       player: AudioPlayer?,
+diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioMediaSessionCallback.kt b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioMediaSessionCallback.kt
+index 839aaef..f34abfe 100644
+--- a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioMediaSessionCallback.kt
++++ b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioMediaSessionCallback.kt
+@@ -1,14 +1,22 @@
+ package expo.modules.audio.service
+ 
+ import android.os.Bundle
++import androidx.annotation.OptIn
+ import androidx.media3.common.Player
++import androidx.media3.common.util.UnstableApi
++import androidx.media3.session.CommandButton
+ import androidx.media3.session.MediaSession
+ import androidx.media3.session.SessionCommand
+ import androidx.media3.session.SessionResult
+-import androidx.annotation.OptIn
+-import androidx.media3.common.util.UnstableApi
+ import com.google.common.util.concurrent.ListenableFuture
+ 
++/**
++ * Android 13+ ignore les icônes de setCustomLayout si COMMAND_SEEK_TO_PREVIOUS/NEXT
++ * sont exposés — le système (Samsung) dessine alors des flèches rewind/forward.
++ *
++ * On masque toutes les commandes skip/seek système, et on publie des boutons
++ * custom ICON_PREVIOUS / ICON_NEXT (comme Deezer).
++ */
+ @OptIn(UnstableApi::class)
+ class AudioMediaSessionCallback : MediaSession.Callback {
+   override fun onConnect(
+@@ -16,27 +24,41 @@ class AudioMediaSessionCallback : MediaSession.Callback {
+     controller: MediaSession.ControllerInfo
+   ): MediaSession.ConnectionResult {
+     try {
+-      // Configure commands - custom layout buttons will be rendered from session
++      val isPlaying = session.player.isPlaying
++      val buttons = AudioControlsService.buildTransportButtons(isPlaying)
++
+       return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+         .setAvailablePlayerCommands(
+           MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS.buildUpon()
+-            // Keep seek commands for the seek slider
++            // Barre de progression / scrub uniquement
+             .add(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
+-            .add(Player.COMMAND_SEEK_FORWARD)
+-            .add(Player.COMMAND_SEEK_BACK)
+-            // Remove track navigation commands
+-            .remove(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
+-            .remove(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
++            // Masquer TOUTES les commandes skip/rewind système
++            .remove(Player.COMMAND_SEEK_FORWARD)
++            .remove(Player.COMMAND_SEEK_BACK)
+             .remove(Player.COMMAND_SEEK_TO_PREVIOUS)
+             .remove(Player.COMMAND_SEEK_TO_NEXT)
++            .remove(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
++            .remove(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
+             .build()
+         )
+         .setAvailableSessionCommands(
+           MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon()
+-            .add(SessionCommand(AudioControlsService.ACTION_SEEK_BACKWARD, Bundle.EMPTY))
+-            .add(SessionCommand(AudioControlsService.ACTION_SEEK_FORWARD, Bundle.EMPTY))
++            .add(
++              SessionCommand(
++                AudioControlsService.ACTION_SEEK_BACKWARD,
++                Bundle.EMPTY,
++              ),
++            )
++            .add(
++              SessionCommand(
++                AudioControlsService.ACTION_SEEK_FORWARD,
++                Bundle.EMPTY,
++              ),
++            )
+             .build()
+         )
++        .setCustomLayout(buttons)
++        .setMediaButtonPreferences(buttons)
+         .build()
+     } catch (e: Exception) {
+       return MediaSession.ConnectionResult.reject()
+@@ -51,10 +73,15 @@ class AudioMediaSessionCallback : MediaSession.Callback {
+   ): ListenableFuture<SessionResult> {
+     when (command.customAction) {
+       AudioControlsService.ACTION_SEEK_FORWARD -> {
+-        session.player.seekTo(session.player.currentPosition + AudioControlsService.SEEK_INTERVAL_MS)
++        session.player.seekTo(
++          session.player.currentPosition + AudioControlsService.SEEK_INTERVAL_MS,
++        )
+       }
+       AudioControlsService.ACTION_SEEK_BACKWARD -> {
+-        session.player.seekTo(session.player.currentPosition - AudioControlsService.SEEK_INTERVAL_MS)
++        session.player.seekTo(
++          (session.player.currentPosition - AudioControlsService.SEEK_INTERVAL_MS)
++            .coerceAtLeast(0L),
++        )
+       }
+     }
+     return super.onCustomCommand(session, controller, command, args)
+diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/SeekAsSkipPlayer.kt b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/SeekAsSkipPlayer.kt
+new file mode 100644
+index 0000000..269bbbb
+--- /dev/null
++++ b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/SeekAsSkipPlayer.kt
+@@ -0,0 +1,38 @@
++package expo.modules.audio.service
++
++import androidx.annotation.OptIn
++import androidx.media3.common.ForwardingPlayer
++import androidx.media3.common.Player
++import androidx.media3.common.util.UnstableApi
++
++/**
++ * Masque les commandes skip/rewind du ExoPlayer sous-jacent.
++ * Les boutons notif prev/next sont des SessionCommand custom (voir Callback).
++ */
++@OptIn(UnstableApi::class)
++class SeekAsSkipPlayer(player: Player) : ForwardingPlayer(player) {
++  override fun isCommandAvailable(command: @Player.Command Int): Boolean {
++    return when (command) {
++      Player.COMMAND_SEEK_BACK,
++      Player.COMMAND_SEEK_FORWARD,
++      Player.COMMAND_SEEK_TO_PREVIOUS,
++      Player.COMMAND_SEEK_TO_NEXT,
++      Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM,
++      Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
++      -> false
++      else -> super.isCommandAvailable(command)
++    }
++  }
++
++  override fun getAvailableCommands(): Player.Commands {
++    return super.getAvailableCommands()
++      .buildUpon()
++      .remove(Player.COMMAND_SEEK_BACK)
++      .remove(Player.COMMAND_SEEK_FORWARD)
++      .remove(Player.COMMAND_SEEK_TO_PREVIOUS)
++      .remove(Player.COMMAND_SEEK_TO_NEXT)
++      .remove(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
++      .remove(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
++      .build()
++  }
++}
+diff --git a/node_modules/expo-audio/ios/MediaController.swift b/node_modules/expo-audio/ios/MediaController.swift
+index 2dd3fb2..7a9c964 100644
+--- a/node_modules/expo-audio/ios/MediaController.swift
++++ b/node_modules/expo-audio/ios/MediaController.swift
+@@ -173,29 +173,26 @@ class MediaController {
+       return .success
+     }
+ 
+-    remoteCommandCenter.skipForwardCommand.preferredIntervals = [10.0]
+-    remoteCommandCenter.skipForwardCommand.addTarget { [weak self] event in
+-      guard let player = self?.activePlayer,
+-      let event = event as? MPSkipIntervalCommandEvent else {
++    // Prev/next track icons (not ±10s skip icons) — seek ±10s so JS can map to queue
++    remoteCommandCenter.nextTrackCommand.addTarget { [weak self] _ in
++      guard let player = self?.activePlayer else {
+         return .commandFailed
+       }
+ 
+       let currentTime = player.ref.currentTime()
+-      let seekTime = currentTime + CMTime(seconds: event.interval, preferredTimescale: 1)
++      let seekTime = currentTime + CMTime(seconds: 10.0, preferredTimescale: 1)
+       player.ref.seek(to: seekTime, toleranceBefore: .zero, toleranceAfter: .zero)
+ 
+       return .success
+     }
+ 
+-    remoteCommandCenter.skipBackwardCommand.preferredIntervals = [10.0]
+-    remoteCommandCenter.skipBackwardCommand.addTarget { [weak self] event in
+-      guard let player = self?.activePlayer,
+-      let event = event as? MPSkipIntervalCommandEvent else {
++    remoteCommandCenter.previousTrackCommand.addTarget { [weak self] _ in
++      guard let player = self?.activePlayer else {
+         return .commandFailed
+       }
+ 
+       let currentTime = player.ref.currentTime()
+-      let seekTime = currentTime - CMTime(seconds: event.interval, preferredTimescale: 1)
++      let seekTime = currentTime - CMTime(seconds: 10.0, preferredTimescale: 1)
+       player.ref.seek(to: seekTime, toleranceBefore: .zero, toleranceAfter: .zero)
+ 
+       return .success
+@@ -205,8 +202,10 @@ class MediaController {
+     remoteCommandCenter.pauseCommand.isEnabled = true
+     remoteCommandCenter.togglePlayPauseCommand.isEnabled = true
+     remoteCommandCenter.changePlaybackPositionCommand.isEnabled = true
+-    remoteCommandCenter.skipForwardCommand.isEnabled = options?.showSeekForward ?? false
+-    remoteCommandCenter.skipBackwardCommand.isEnabled = options?.showSeekBackward ?? false
++    remoteCommandCenter.skipForwardCommand.isEnabled = false
++    remoteCommandCenter.skipBackwardCommand.isEnabled = false
++    remoteCommandCenter.nextTrackCommand.isEnabled = options?.showSeekForward ?? false
++    remoteCommandCenter.previousTrackCommand.isEnabled = options?.showSeekBackward ?? false
+   }
+ 
+   private func disableRemoteCommands() {
+@@ -216,13 +215,17 @@ class MediaController {
+     remoteCommandCenter.changePlaybackPositionCommand.isEnabled = false
+     remoteCommandCenter.skipForwardCommand.isEnabled = false
+     remoteCommandCenter.skipBackwardCommand.isEnabled = false
++    remoteCommandCenter.nextTrackCommand.isEnabled = false
++    remoteCommandCenter.previousTrackCommand.isEnabled = false
+ 
+     // Remove event targets
+-    remoteCommandCenter.playCommand.removeTarget(self);
+-    remoteCommandCenter.pauseCommand.removeTarget(self);
+-    remoteCommandCenter.togglePlayPauseCommand.removeTarget(self);
+-    remoteCommandCenter.changePlaybackPositionCommand.removeTarget(self);
+-    remoteCommandCenter.skipForwardCommand.removeTarget(self);
+-    remoteCommandCenter.skipBackwardCommand.removeTarget(self);
++    remoteCommandCenter.playCommand.removeTarget(nil)
++    remoteCommandCenter.pauseCommand.removeTarget(nil)
++    remoteCommandCenter.togglePlayPauseCommand.removeTarget(nil)
++    remoteCommandCenter.changePlaybackPositionCommand.removeTarget(nil)
++    remoteCommandCenter.skipForwardCommand.removeTarget(nil)
++    remoteCommandCenter.skipBackwardCommand.removeTarget(nil)
++    remoteCommandCenter.nextTrackCommand.removeTarget(nil)
++    remoteCommandCenter.previousTrackCommand.removeTarget(nil)
+   }
+ }

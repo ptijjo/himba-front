@@ -19,6 +19,24 @@ describe('schemas/notifications', () => {
     expect(parsed.success).toBe(true);
   });
 
+  it('parse une notification NEW_FOLLOWER', () => {
+    const parsed = notificationSchema.safeParse({
+      id: 'n2',
+      userId: 'artist-user',
+      type: 'NEW_FOLLOWER',
+      title: 'Nouveau follower',
+      body: 'marie a commencé à te suivre',
+      data: {
+        artistId: 'a1',
+        followerId: 'u2',
+        followerUsername: 'marie',
+      },
+      readAt: null,
+      createdAt: '2026-08-01T10:00:00.000Z',
+    });
+    expect(parsed.success).toBe(true);
+  });
+
   it('rejette un type inconnu', () => {
     const parsed = notificationSchema.safeParse({
       id: 'n1',

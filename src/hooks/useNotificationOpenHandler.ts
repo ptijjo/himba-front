@@ -5,7 +5,7 @@
 import * as Notifications from 'expo-notifications';
 import { useEffect, useRef } from 'react';
 
-import { openArtistProfile } from '@/lib/navigation/openProfile';
+import { openArtistProfile, openUserProfile } from '@/lib/navigation/openProfile';
 import { notificationDataSchema } from '@/schemas/notifications';
 
 const handledResponseIds = new Set<string>();
@@ -13,6 +13,11 @@ const handledResponseIds = new Set<string>();
 function navigateFromNotificationData(raw: unknown): void {
   const parsed = notificationDataSchema.safeParse(raw);
   if (!parsed.success) {
+    return;
+  }
+  // Nouveau follower → profil de celui qui suit ; sinon profil artiste (sortie)
+  if (parsed.data.followerId) {
+    openUserProfile(parsed.data.followerId);
     return;
   }
   openArtistProfile(parsed.data.artistId);

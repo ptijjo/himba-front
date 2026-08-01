@@ -1,19 +1,12 @@
 /**
- * Lecteur audio global.
- * 1. Play immédiat : cache local si dispo, sinon stream URL signée
- * 2. Prefetch cache en background pour le prochain play
- * 3. Progress via store externe (pas de setState Provider → pas de jank JS)
- * 4. Mini-lecteur système : play/pause + prev/next (+ barre Media3)
+ * Lecteur audio global via react-native-track-player.
+ * 1. Redux (streamUrl / track / isPlaying) = source de vérité métier
+ * 2. RNTP charge 1 piste + notif / lock screen (prev / next réels)
+ * 3. Progress via PlaybackProgressUpdated → store externe (pas de jank)
+ * 4. Fin de piste → markTrackEnded → PlayerQueueAutoAdvance
  *
- * Important : ne pas rappeler setActiveForLockScreen à chaque play/pause
- * (sinon la notif se détruit / se recrée et l’UI entre en boucle).
+ * Les Remote* (lock screen) sont gérés dans src/services/playbackService.ts
  */
-import {
-  createAudioPlayer,
-  setAudioModeAsync,
-  type AudioPlayer,
-  type AudioStatus,
-} from 'expo-audio';
 import {
   createContext,
   useCallback,
@@ -23,21 +16,25 @@ import {
   useRef,
   type ReactNode,
 } from 'react';
-import { AppState } from 'react-native';
+import { Platform } from 'react-native';
+import TrackPlayer, {
+  Event,
+  State,
+  type PlaybackState,
+} from 'react-native-track-player';
 
-import { PlayerLockScreenSkipBridge } from '@/components/player/PlayerLockScreenSkipBridge';
 import { PlayerQueueAutoAdvance } from '@/components/player/PlayerQueueAutoAdvance';
 import { PrefetchQueueNeighbors } from '@/components/player/PrefetchQueueNeighbors';
 import {
   getCachedTrackUri,
   prefetchTrackAudio,
 } from '@/lib/audio/cacheTrackAudio';
-import { lockScreenMetadataFromTrack } from '@/lib/audio/lockScreenMetadata';
 import {
   resetPlayerProgress,
   setPlayerProgress,
   usePlayerProgressStore,
 } from '@/lib/audio/playerProgressStore';
+import { ensureTrackPlayerReady } from '@/lib/audio/trackPlayerSetup';
 import { useAppDispatch, useAppSelector } from '@/store';
 import { markTrackEnded, setPlaying } from '@/store/slices/playerSlice';
 
@@ -52,6 +49,8 @@ type PlayerProgressValue = {
 };
 
 const PlayerControlsContext = createContext<PlayerControlsValue | null>(null);
+
+const isNativePlayer = Platform.OS === 'ios' || Platform.OS === 'android';
 
 export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const dispatch = useAppDispatch();
@@ -68,289 +67,217 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const metaDurationRef = useRef(metaDurationSec);
   metaDurationRef.current = metaDurationSec;
 
-  const playerRef = useRef<AudioPlayer | null>(null);
-  const subscriptionRef = useRef<{ remove: () => void } | null>(null);
-  const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isPlayingRef = useRef(isPlaying);
   isPlayingRef.current = isPlaying;
   const loadGenRef = useRef(0);
-  const trackRef = useRef(track);
-  trackRef.current = track;
+  const loadedTrackIdRef = useRef<string | null>(null);
   /** Ignore les status issus de nos propres play()/pause() (évite la boucle Redux ↔ natif). */
   const ignorePlayingSyncRef = useRef(false);
-  const lockScreenActiveRef = useRef(false);
 
+  // Setup RNTP une fois (natif uniquement)
   useEffect(() => {
-    void setAudioModeAsync({
-      playsInSilentMode: true,
-      shouldPlayInBackground: true,
-      interruptionMode: 'doNotMix',
-      allowsRecording: false,
-    });
-
-    return () => {
-      if (progressTimerRef.current) {
-        clearInterval(progressTimerRef.current);
-        progressTimerRef.current = null;
-      }
-      subscriptionRef.current?.remove();
-      subscriptionRef.current = null;
-      try {
-        playerRef.current?.clearLockScreenControls();
-        playerRef.current?.remove();
-      } catch {
-        // ignore
-      }
-      playerRef.current = null;
-      lockScreenActiveRef.current = false;
-    };
-  }, []);
-
-  const stopProgressTimer = useCallback(() => {
-    if (progressTimerRef.current) {
-      clearInterval(progressTimerRef.current);
-      progressTimerRef.current = null;
+    if (!isNativePlayer) {
+      return;
     }
+    void ensureTrackPlayerReady().catch(() => {
+      // Expo Go / module natif absent
+    });
   }, []);
 
-  const startProgressTimer = useCallback(() => {
-    stopProgressTimer();
-    progressTimerRef.current = setInterval(() => {
-      const player = playerRef.current;
-      if (!player) {
-        return;
-      }
-      try {
-        const t = Number(player.currentTime);
-        const d = Number(player.duration);
+  // Progress + fin de piste + sync play/pause depuis notif / casque
+  useEffect(() => {
+    if (!isNativePlayer) {
+      return;
+    }
+
+    const progressSub = TrackPlayer.addEventListener(
+      Event.PlaybackProgressUpdated,
+      (event) => {
         const duration =
-          Number.isFinite(d) && d > 0
-            ? d
+          event.duration > 0
+            ? event.duration
             : metaDurationRef.current > 0
               ? metaDurationRef.current
               : 0;
-        const currentTime = Number.isFinite(t) ? t : 0;
-        setPlayerProgress({ currentTime, duration });
-      } catch {
-        // player dispose mid-tick
-      }
-    }, 500);
-  }, [stopProgressTimer]);
+        setPlayerProgress({
+          currentTime: event.position,
+          duration,
+        });
+      },
+    );
 
-  /** Active la notif média une seule fois par instance de player. */
-  const activateLockScreenOnce = useCallback((player: AudioPlayer) => {
-    const current = trackRef.current;
-    if (!current || lockScreenActiveRef.current) {
-      return;
-    }
-    try {
-      // Icônes skip = seek ±10 s natif ; PlayerLockScreenSkipBridge → prev/next file.
-      // Barre de progression : fournie par Media3 (session liée au player).
-      player.setActiveForLockScreen(
-        true,
-        lockScreenMetadataFromTrack(current),
-        { showSeekForward: true, showSeekBackward: true },
-      );
-      lockScreenActiveRef.current = true;
-    } catch {
-      // Expo Go / web
-    }
-  }, []);
+    const queueEndedSub = TrackPlayer.addEventListener(
+      Event.PlaybackQueueEnded,
+      () => {
+        dispatch(markTrackEnded());
+        setPlayerProgress({
+          currentTime: 0,
+          duration: metaDurationRef.current,
+        });
+      },
+    );
 
-  const destroyPlayer = useCallback(() => {
-    stopProgressTimer();
-    subscriptionRef.current?.remove();
-    subscriptionRef.current = null;
-    try {
-      if (lockScreenActiveRef.current) {
-        playerRef.current?.clearLockScreenControls();
-      }
-      playerRef.current?.pause();
-      playerRef.current?.remove();
-    } catch {
-      // ignore
-    }
-    playerRef.current = null;
-    lockScreenActiveRef.current = false;
-  }, [stopProgressTimer]);
+    const stateSub = TrackPlayer.addEventListener(
+      Event.PlaybackState,
+      (event: PlaybackState) => {
+        if (ignorePlayingSyncRef.current) {
+          return;
+        }
+        const playing = event.state === State.Playing;
+        const pausedLike =
+          event.state === State.Paused ||
+          event.state === State.Stopped ||
+          event.state === State.Ready;
+        if (playing && !isPlayingRef.current) {
+          dispatch(setPlaying(true));
+        } else if (pausedLike && isPlayingRef.current) {
+          dispatch(setPlaying(false));
+        }
+      },
+    );
 
-  // 1. Nouvelle URL → play immédiat (cache hit ou stream), prefetch async
+    return () => {
+      progressSub.remove();
+      queueEndedSub.remove();
+      stateSub.remove();
+    };
+  }, [dispatch]);
+
+  // 1. Nouvelle URL → reset RNTP + add + play
   useEffect(() => {
-    destroyPlayer();
-    resetPlayerProgress(metaDurationSec);
-
-    if (!streamUrl || !trackId) {
+    if (!isNativePlayer) {
       return;
     }
 
     const gen = ++loadGenRef.current;
     let cancelled = false;
-    let lockScreenTimer: ReturnType<typeof setTimeout> | null = null;
-    let syncUnlockTimer: ReturnType<typeof setTimeout> | null = null;
 
-    try {
-      const cached = getCachedTrackUri(trackId);
-      const sourceUri = cached ?? streamUrl;
+    const run = async () => {
+      resetPlayerProgress(metaDurationSec);
 
-      const player = createAudioPlayer(
-        { uri: sourceUri },
-        { updateInterval: 1000 },
-      );
-      player.volume = 1;
-
-      subscriptionRef.current = player.addListener(
-        'playbackStatusUpdate',
-        (status: AudioStatus) => {
-          if (cancelled || gen !== loadGenRef.current) {
-            return;
-          }
-          if (status.didJustFinish) {
-            dispatch(markTrackEnded());
-            setPlayerProgress({
-              currentTime: 0,
-              duration:
-                Number(status.duration) > 0
-                  ? Number(status.duration)
-                  : metaDurationRef.current,
-            });
-            return;
-          }
-          // Sync play/pause depuis la notif — seulement hors app, et pas pendant nos commandes
-          if (ignorePlayingSyncRef.current) {
-            return;
-          }
-          if (AppState.currentState === 'active') {
-            return;
-          }
-          if (
-            typeof status.playing === 'boolean' &&
-            status.playing !== isPlayingRef.current
-          ) {
-            dispatch(setPlaying(status.playing));
-          }
-        },
-      );
-
-      playerRef.current = player;
-      startProgressTimer();
-
-      if (isPlayingRef.current) {
+      if (!streamUrl || !trackId || !track) {
+        loadedTrackIdRef.current = null;
         try {
-          ignorePlayingSyncRef.current = true;
-          player.play();
-          lockScreenTimer = setTimeout(() => {
-            if (!cancelled && gen === loadGenRef.current) {
-              activateLockScreenOnce(player);
-            }
-          }, 250);
-          syncUnlockTimer = setTimeout(() => {
-            ignorePlayingSyncRef.current = false;
-          }, 600);
+          await ensureTrackPlayerReady();
+          await TrackPlayer.reset();
         } catch {
-          ignorePlayingSyncRef.current = false;
+          // ignore
+        }
+        return;
+      }
+
+      try {
+        await ensureTrackPlayerReady();
+        if (cancelled || gen !== loadGenRef.current) {
+          return;
+        }
+
+        const cached = getCachedTrackUri(trackId);
+        const sourceUri = cached ?? streamUrl;
+
+        await TrackPlayer.reset();
+        loadedTrackIdRef.current = null;
+        await TrackPlayer.add({
+          id: trackId,
+          url: sourceUri,
+          title: track.title,
+          artist: track.artist?.displayName ?? 'Himba',
+          artwork: track.coverUrl ?? undefined,
+          duration: metaDurationSec > 0 ? metaDurationSec : undefined,
+        });
+
+        if (cancelled || gen !== loadGenRef.current) {
+          return;
+        }
+
+        loadedTrackIdRef.current = trackId;
+
+        if (isPlayingRef.current) {
+          ignorePlayingSyncRef.current = true;
+          await TrackPlayer.play();
+          setTimeout(() => {
+            ignorePlayingSyncRef.current = false;
+          }, 500);
+        }
+
+        if (!cached) {
+          prefetchTrackAudio(trackId, streamUrl);
+        }
+      } catch {
+        if (!cancelled && gen === loadGenRef.current) {
+          loadedTrackIdRef.current = null;
+          dispatch(setPlaying(false));
         }
       }
+    };
 
-      if (!cached) {
-        prefetchTrackAudio(trackId, streamUrl);
-      }
-    } catch {
-      if (!cancelled && gen === loadGenRef.current) {
-        dispatch(setPlaying(false));
-      }
-    }
+    void run();
 
     return () => {
       cancelled = true;
-      if (lockScreenTimer) {
-        clearTimeout(lockScreenTimer);
-      }
-      if (syncUnlockTimer) {
-        clearTimeout(syncUnlockTimer);
-      }
-      destroyPlayer();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reload only on source change
-  }, [
-    streamUrl,
-    trackId,
-    dispatch,
-    destroyPlayer,
-    startProgressTimer,
-    activateLockScreenOnce,
-  ]);
+  }, [streamUrl, trackId, dispatch, metaDurationSec]);
 
-  // 2. Play / pause UI — sans réactiver le lock screen (évite hide/show notif)
+  // 2. Play / pause UI ↔ RNTP (hors chargement initial — géré par l’effet URL)
   useEffect(() => {
-    const player = playerRef.current;
-    if (!player) {
+    if (!isNativePlayer || !streamUrl || !trackId) {
       return;
     }
-    try {
-      ignorePlayingSyncRef.current = true;
-      if (isPlaying) {
-        if (!player.playing) {
-          player.play();
+    if (loadedTrackIdRef.current !== trackId) {
+      return;
+    }
+
+    let unlockTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const sync = async () => {
+      try {
+        await ensureTrackPlayerReady();
+        ignorePlayingSyncRef.current = true;
+        if (isPlaying) {
+          await TrackPlayer.play();
+        } else {
+          await TrackPlayer.pause();
         }
-        // Première activation seulement (si pas encore fait au load)
-        activateLockScreenOnce(player);
-      } else if (player.playing) {
-        player.pause();
+      } catch {
+        // ignore
       }
-    } catch {
-      // ignore
-    }
-    const t = setTimeout(() => {
-      ignorePlayingSyncRef.current = false;
-    }, 400);
-    return () => {
-      clearTimeout(t);
+      unlockTimer = setTimeout(() => {
+        ignorePlayingSyncRef.current = false;
+      }, 400);
     };
-  }, [isPlaying, activateLockScreenOnce]);
 
-  // 3. Métadonnées lock screen (titre / cover) sans recréer la session
-  useEffect(() => {
-    const player = playerRef.current;
-    if (!player || !track || !lockScreenActiveRef.current) {
-      return;
-    }
-    try {
-      player.updateLockScreenMetadata(lockScreenMetadataFromTrack(track));
-    } catch {
-      // ignore
-    }
-  }, [track]);
+    void sync();
+
+    return () => {
+      if (unlockTimer) {
+        clearTimeout(unlockTimer);
+      }
+    };
+  }, [isPlaying, streamUrl, trackId]);
 
   const toggle = useCallback(() => {
     dispatch(setPlaying(!isPlayingRef.current));
   }, [dispatch]);
 
   const seekTo = useCallback(async (seconds: number) => {
-    const player = playerRef.current;
-    if (!player) {
+    if (!isNativePlayer) {
       return;
     }
-    const nativeDur = Number(player.duration);
     const fallbackDur = metaDurationRef.current;
     const maxDur =
-      Number.isFinite(nativeDur) && nativeDur > 0
-        ? nativeDur
-        : fallbackDur > 0
-          ? fallbackDur
-          : Number.POSITIVE_INFINITY;
-    const rounded = Math.round(Math.min(Math.max(0, seconds), maxDur));
+      fallbackDur > 0 ? fallbackDur : Number.POSITIVE_INFINITY;
+    const rounded = Math.min(Math.max(0, seconds), maxDur);
     try {
-      await player.seekTo(rounded);
+      await ensureTrackPlayerReady();
+      await TrackPlayer.seekTo(rounded);
       setPlayerProgress({
         currentTime: rounded,
-        duration:
-          Number.isFinite(nativeDur) && nativeDur > 0
-            ? nativeDur
-            : fallbackDur,
+        duration: fallbackDur,
       });
       if (isPlayingRef.current) {
         ignorePlayingSyncRef.current = true;
-        player.play();
+        await TrackPlayer.play();
         setTimeout(() => {
           ignorePlayingSyncRef.current = false;
         }, 400);
@@ -369,7 +296,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     <PlayerControlsContext.Provider value={controls}>
       <PlayerQueueAutoAdvance />
       <PrefetchQueueNeighbors />
-      <PlayerLockScreenSkipBridge />
       {children}
     </PlayerControlsContext.Provider>
   );

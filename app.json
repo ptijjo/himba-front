@@ -2,7 +2,7 @@
   "expo": {
     "name": "Himba",
     "slug": "himba",
-    "version": "1.0.7",
+    "version": "1.0.12",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "himba",
@@ -20,7 +20,8 @@
     },
     "android": {
       "package": "fr.cellulenoire.himba",
-      "versionCode": 8,
+      "versionCode": 14,
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#0B0618",
         "foregroundImage": "./assets/images/adaptive-icon.png"
@@ -56,7 +57,7 @@
         {
           "icon": "./assets/images/adaptive-icon.png",
           "color": "#E85D04",
-          "defaultChannel": "sorties"
+          "defaultChannel": "sorties_v2"
         }
       ],
       [

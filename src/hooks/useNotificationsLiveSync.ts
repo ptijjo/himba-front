@@ -19,7 +19,7 @@ import {
   useGetNotificationsQuery,
 } from '@/store/api/notificationsApi';
 
-const POLL_MS = 15_000;
+const POLL_MS = 8_000;
 
 function unreadCountFrom(
   items: Array<{ id: string; readAt?: string | Date | null }>,
@@ -59,13 +59,22 @@ export function useNotificationsLiveSync() {
     })();
   }, [ready]);
 
-  // Push distant reçu → rafraîchir le fil Actus
+  // Push distant reçu → rafraîchir le fil Actus (+ bannière si le système ne l’a pas montrée)
   useEffect(() => {
     if (!ready) {
       return;
     }
-    const sub = Notifications.addNotificationReceivedListener(() => {
+    const sub = Notifications.addNotificationReceivedListener((notification) => {
       dispatch(notificationsApi.util.invalidateTags(['Notifications']));
+      const content = notification.request.content;
+      const id = notification.request.identifier;
+      if (id && knownUnreadIds.current.has(id)) {
+        return;
+      }
+      // Marquer pour éviter double alerte polling juste après
+      if (content.title && content.body) {
+        knownUnreadIds.current.add(id);
+      }
     });
     return () => {
       sub.remove();
@@ -109,7 +118,10 @@ export function useNotificationsLiveSync() {
     }
 
     const fresh = unread.filter((n) => !knownUnreadIds.current.has(n.id));
-    knownUnreadIds.current = new Set(unread.map((n) => n.id));
+    knownUnreadIds.current = new Set([
+      ...knownUnreadIds.current,
+      ...unread.map((n) => n.id),
+    ]);
 
     if (fresh.length === 0) {
       return;

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "850396801269",
+    "project_id": "himba-7a7f2",
+    "storage_bucket": "himba-7a7f2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:850396801269:android:d1238ae18d4d664ed53dbc",
+        "android_client_info": {
+          "package_name": "fr.cellulenoire.himba"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDWDFe9Lw6NI5hcPG4nrqF0-w--voJDENA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

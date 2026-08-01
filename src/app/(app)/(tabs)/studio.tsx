@@ -449,7 +449,7 @@ function TrackPublishPanel({
             text: 'Non',
             style: 'cancel',
             onPress: () => {
-              router.replace('/(app)/(tabs)/index');
+              router.replace('/(app)/(tabs)');
             },
           },
           {

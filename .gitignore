@@ -34,6 +34,10 @@ yarn-error.*
 .env
 .env*.local
 
+# Firebase / FCM — clé privée compte de service (ne jamais committer)
+google-fcm-service-account.json
+*-firebase-adminsdk-*.json
+
 # typescript
 *.tsbuildinfo
 

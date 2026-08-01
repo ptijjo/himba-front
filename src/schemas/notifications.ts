@@ -3,12 +3,15 @@ import { z } from 'zod';
 export const notificationTypeSchema = z.enum([
   'TRACK_RELEASE',
   'ALBUM_RELEASE',
+  'NEW_FOLLOWER',
 ]);
 
 export const notificationDataSchema = z.object({
   artistId: z.string(),
   trackId: z.string().optional(),
   albumId: z.string().optional(),
+  followerId: z.string().optional(),
+  followerUsername: z.string().optional(),
 });
 
 export const notificationSchema = z.object({

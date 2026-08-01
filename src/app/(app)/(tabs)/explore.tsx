@@ -9,7 +9,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { himbaColors } from '@/constants/theme';
-import { openArtistProfile } from '@/lib/navigation/openProfile';
+import { openArtistProfile, openUserProfile } from '@/lib/navigation/openProfile';
 import type { AppNotification } from '@/schemas/notifications';
 import {
   useGetNotificationsQuery,
@@ -35,7 +35,7 @@ function isUnread(n: AppNotification): boolean {
 }
 
 /**
- * Onglet Actus — sorties des artistes suivis (in-app + miroir push).
+ * Onglet Actus — sorties des artistes suivis + nouveaux followers (in-app + push).
  */
 export default function ActusScreen() {
   const { data, isLoading, isFetching, refetch } = useGetNotificationsQuery({
@@ -52,6 +52,10 @@ export default function ActusScreen() {
     (item: AppNotification) => {
       if (isUnread(item)) {
         void markRead(item.id);
+      }
+      if (item.type === 'NEW_FOLLOWER' && item.data.followerId) {
+        openUserProfile(item.data.followerId);
+        return;
       }
       openArtistProfile(item.data.artistId);
     },
@@ -104,7 +108,8 @@ export default function ActusScreen() {
                   Aucune alerte
                 </Text>
                 <Text className="mt-1 text-himba-mist">
-                  Suis des artistes pour être prévenu de leurs nouvelles sorties.
+                  Suis des artistes pour leurs sorties — et reçois une alerte
+                  quand quelqu’un te suit.
                 </Text>
               </View>
             }

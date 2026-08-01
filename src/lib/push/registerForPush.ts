@@ -1,6 +1,6 @@
 /**
  * 1. Permission notifications
- * 2. Canal Android « sorties » (HIGH + son)
+ * 2. Canal Android « sorties_v2 » (MAX + son + bannière)
  * 3. ExpoPushToken (projectId EAS)
  * 4. POST /devices/push-token (appelant)
  *
@@ -13,7 +13,7 @@ import { Platform } from 'react-native';
 import { setStoredPushToken } from '@/lib/push/pushTokenStorage';
 import type { UpsertPushTokenValues } from '@/schemas/notifications';
 
-export const SORTIES_CHANNEL_ID = 'sorties';
+export const SORTIES_CHANNEL_ID = 'sorties_v2';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -42,15 +42,18 @@ export async function ensureAndroidSortiesChannel(): Promise<void> {
   }
   await Notifications.setNotificationChannelAsync(SORTIES_CHANNEL_ID, {
     name: 'Sorties',
-    importance: Notifications.AndroidImportance.HIGH,
+    // MAX = heads-up (bannière) même app ouverte ; HIGH peut être trop discret
+    importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 250, 250, 250],
     sound: 'default',
     enableVibrate: true,
+    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+    bypassDnd: false,
   });
 }
 
 /**
- * Bannière locale + son — utiliséée quand une nouvelle Actu arrive (polling / push).
+ * Bannière locale + son — utilisée quand une nouvelle Actu arrive (polling / push).
  */
 export async function presentSortieAlert(input: {
   title: string;
@@ -62,10 +65,13 @@ export async function presentSortieAlert(input: {
     content: {
       title: input.title,
       body: input.body,
-      sound: true,
+      sound: 'default',
       data: input.data,
       ...(Platform.OS === 'android'
-        ? { channelId: SORTIES_CHANNEL_ID }
+        ? {
+            channelId: SORTIES_CHANNEL_ID,
+            priority: Notifications.AndroidNotificationPriority.MAX,
+          }
         : {}),
     },
     trigger: null,
