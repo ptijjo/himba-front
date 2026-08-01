@@ -1,7 +1,7 @@
 /**
- * Lecture hors hooks — utilisable depuis le PlaybackService RNTP (headless).
+ * Lecture partagée (hooks UI + skip lock screen).
  * 1. setQueue  2. résoudre stream (cache → API)  3. setNowPlaying / erreurs
- * 4. POST /plays (y compris skip lock screen)
+ * 4. POST /plays
  */
 import { getErrorMessage } from '@/lib/errors/apiError';
 import {

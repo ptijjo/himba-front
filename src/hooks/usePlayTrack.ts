@@ -1,5 +1,5 @@
 /**
- * Hook lecture — délègue à playTrackCore (même chemin que le PlaybackService).
+ * Hook lecture — délègue à playTrackCore (stream + gate payant + store player).
  */
 import { useCallback } from 'react';
 
