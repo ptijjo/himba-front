@@ -1,16 +1,17 @@
 /**
- * Hook lecture — 1. GET stream URL 2. hydrater player 3. POST /plays
+ * Hook lecture — 1. stream (cache → réseau) 2. hydrater player 3. POST /plays
  * Option `queue` : charge la file (playlist) pour prev / next / auto-avance.
  */
 import { useCallback } from 'react';
 
 import { getErrorMessage } from '@/lib/errors/apiError';
+import {
+  getCachedStreamUrl,
+  setCachedStreamUrl,
+} from '@/lib/audio/streamUrlCache';
 import type { Track } from '@/schemas/tracks';
 import { useAppDispatch } from '@/store';
-import {
-  useLazyGetStreamUrlQuery,
-  useRecordPlayMutation,
-} from '@/store/api/tracksApi';
+import { tracksApi, useRecordPlayMutation } from '@/store/api/tracksApi';
 import {
   setNeedsPurchase,
   setNowPlaying,
@@ -25,17 +26,36 @@ export type PlayTrackOptions = {
 
 export function usePlayTrack() {
   const dispatch = useAppDispatch();
-  const [fetchStream, { isFetching }] = useLazyGetStreamUrlQuery();
   const [recordPlay] = useRecordPlayMutation();
 
   const playTrack = useCallback(
     async (track: Track, options?: PlayTrackOptions): Promise<void> => {
-      // 1. Fixer la file avant le stream (prev/next cohérents)
       dispatch(setQueue(options?.queue ?? [track]));
 
       try {
-        const signed = await fetchStream(track.id).unwrap();
-        dispatch(setNowPlaying({ track, streamUrl: signed.url }));
+        // 1. Cache mémoire / RTK → play sans attendre le réseau
+        let streamUrl = getCachedStreamUrl(track.id);
+        if (!streamUrl) {
+          const result = await dispatch(
+            tracksApi.endpoints.getStreamUrl.initiate(track.id, {
+              forceRefetch: false,
+            }),
+          );
+          if (result.error) {
+            throw result.error;
+          }
+          if (!result.data) {
+            throw new Error('URL de stream manquante');
+          }
+          streamUrl = result.data.url;
+          setCachedStreamUrl(
+            track.id,
+            result.data.url,
+            result.data.expiresInSeconds,
+          );
+        }
+
+        dispatch(setNowPlaying({ track, streamUrl }));
         void recordPlay({ trackId: track.id });
       } catch (error) {
         const status =
@@ -55,8 +75,8 @@ export function usePlayTrack() {
         );
       }
     },
-    [dispatch, fetchStream, recordPlay],
+    [dispatch, recordPlay],
   );
 
-  return { playTrack, isLoading: isFetching };
+  return { playTrack, isLoading: false };
 }

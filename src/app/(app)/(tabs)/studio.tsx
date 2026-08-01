@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -255,6 +256,7 @@ function TrackPublishPanel({
       genre: 'AFRO',
       albumMode: 'none',
       albumId: undefined,
+      cover: null,
       pricing: 'free',
       priceEuros: '',
       audio: null,
@@ -264,6 +266,7 @@ function TrackPublishPanel({
   const albumMode = useWatch({ control, name: 'albumMode' });
   const selectedGenre = useWatch({ control, name: 'genre' });
   const audio = useWatch({ control, name: 'audio' });
+  const cover = useWatch({ control, name: 'cover' });
   const selectedAlbumId = useWatch({ control, name: 'albumId' });
 
   useEffect(() => {
@@ -341,6 +344,52 @@ function TrackPublishPanel({
     );
   };
 
+  const pickCover = async () => {
+    setFormError(null);
+    await ImagePicker.requestMediaLibraryPermissionsAsync();
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.85,
+    });
+    if (result.canceled || !result.assets[0]) {
+      return;
+    }
+    const asset = result.assets[0];
+    const mime = asset.mimeType ?? 'image/jpeg';
+    if (
+      mime !== 'image/jpeg' &&
+      mime !== 'image/png' &&
+      mime !== 'image/webp'
+    ) {
+      setFormError('Image JPEG, PNG ou WebP uniquement.');
+      setValue('cover', null, { shouldValidate: true });
+      return;
+    }
+    const name =
+      asset.fileName ??
+      `cover.${mime === 'image/png' ? 'png' : mime === 'image/webp' ? 'webp' : 'jpg'}`;
+    setValue(
+      'cover',
+      { uri: asset.uri, name, mimeType: mime },
+      { shouldValidate: true },
+    );
+  };
+
+  const resetTrackForm = () => {
+    setValue('title', '');
+    setValue('description', '');
+    setValue('audio', null);
+    setValue('cover', null);
+    setValue('albumMode', 'none');
+    setValue('albumId', undefined);
+    setValue('pricing', 'free');
+    setValue('priceEuros', '');
+    setFeedback(null);
+    setFormError(null);
+  };
+
   const onSubmit = handleSubmit(async (values) => {
     setFeedback(null);
     setFormError(null);
@@ -371,6 +420,17 @@ function TrackPublishPanel({
       if (albumId) {
         formData.append('albumId', albumId);
       }
+      // Single hors album : cover obligatoire côté API
+      if (!albumId && values.cover) {
+        formData.append(
+          'cover',
+          {
+            uri: values.cover.uri,
+            name: values.cover.name,
+            type: values.cover.mimeType,
+          } as unknown as Blob,
+        );
+      }
       if (values.audio.durationMs) {
         formData.append('durationMs', String(values.audio.durationMs));
       }
@@ -380,12 +440,26 @@ function TrackPublishPanel({
       }
 
       const track = await createTrack(formData).unwrap();
-      setFeedback(`« ${track.title} » publié.`);
-      setValue('title', '');
-      setValue('description', '');
-      setValue('audio', null);
-      setValue('albumMode', 'none');
-      setValue('albumId', undefined);
+      resetTrackForm();
+      Alert.alert(
+        'Titre publié',
+        `« ${track.title} » est en ligne. Veux-tu uploader une autre musique ?`,
+        [
+          {
+            text: 'Non',
+            style: 'cancel',
+            onPress: () => {
+              router.replace('/(app)/(tabs)/index');
+            },
+          },
+          {
+            text: 'Oui',
+            onPress: () => {
+              setFeedback('Prêt pour un nouveau titre.');
+            },
+          },
+        ],
+      );
     } catch (e) {
       setFormError(getErrorMessage(e, 'Publication impossible'));
     }
@@ -586,6 +660,45 @@ function TrackPublishPanel({
             </View>
           ) : null}
         </View>
+
+        {albumMode === 'none' ? (
+          <View className="gap-2">
+            <Text className="text-sm font-medium text-himba-mist">
+              Image de couverture
+            </Text>
+            <Text className="text-xs text-himba-mist">
+              Obligatoire pour un titre hors album.
+            </Text>
+            <Pressable
+              onPress={() => {
+                void pickCover();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Choisir une image de couverture"
+              style={styles.coverBtn}
+            >
+              {cover ? (
+                <Image
+                  source={{ uri: cover.uri }}
+                  style={styles.coverPreview}
+                  contentFit="cover"
+                />
+              ) : (
+                <View style={styles.coverPlaceholder}>
+                  <Text style={styles.coverPlaceholderIcon}>＋</Text>
+                  <Text style={styles.coverPlaceholderLabel}>
+                    Ajouter une image
+                  </Text>
+                </View>
+              )}
+            </Pressable>
+            {errors.cover?.message ? (
+              <Text className="text-sm text-himba-alert">
+                {errors.cover.message}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
 
         <View className="gap-2">
           <Text className="text-sm font-medium text-himba-mist">

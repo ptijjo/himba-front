@@ -4,6 +4,13 @@ import { trackGenreSchema } from '@/schemas/genres';
 
 export const trackPricingSchema = z.enum(['free', 'paid']);
 
+/** Image locale (ImagePicker) — JPEG / PNG / WebP. */
+export const trackCoverFileSchema = z.object({
+  uri: z.string().min(1),
+  name: z.string().min(1),
+  mimeType: z.string().min(1),
+});
+
 /** Fichier audio local (DocumentPicker) — M4A / AAC / MP3 (API sniffe le conteneur). */
 export const audioFileSchema = z.object({
   uri: z.string().min(1),
@@ -15,7 +22,7 @@ export const audioFileSchema = z.object({
 });
 
 /**
- * Formulaire Studio titre — CreateTrackDto + multipart audio.
+ * Formulaire Studio titre — CreateTrackDto + multipart audio (+ cover si hors album).
  * Création d’album = panneau dédié (createAlbumSchema), pas ce formulaire.
  */
 export const studioTrackSchema = z
@@ -26,6 +33,8 @@ export const studioTrackSchema = z
     genre: trackGenreSchema,
     albumMode: z.enum(['none', 'existing']),
     albumId: z.string().optional(),
+    /** Cover titre — obligatoire si hors album (API). */
+    cover: trackCoverFileSchema.nullable(),
     pricing: trackPricingSchema,
     priceEuros: z.string().optional(),
     audio: audioFileSchema.nullable(),
@@ -44,6 +53,15 @@ export const studioTrackSchema = z
         code: 'custom',
         message: 'Choisis un album',
         path: ['albumId'],
+      });
+    }
+
+    // Single hors album : cover obligatoire (miroir tracks.service API)
+    if (data.albumMode === 'none' && !data.cover) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Image de couverture requise',
+        path: ['cover'],
       });
     }
 

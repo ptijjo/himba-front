@@ -58,29 +58,14 @@ export function PlayerCoverSwipe({
         e.translationX > SWIPE_THRESHOLD || e.velocityX > VELOCITY_THRESHOLD;
 
       if (goNext) {
-        translateX.value = withSpring(
-          -coverWidth,
-          { damping: 22, stiffness: 220 },
-          (finished) => {
-            if (finished) {
-              runOnJS(onSwipeNext)();
-              translateX.value = 0;
-            }
-          },
-        );
+        // Déclencher le changement tout de suite — ne pas attendre la fin du spring
+        runOnJS(onSwipeNext)();
+        translateX.value = withSpring(0, { damping: 22, stiffness: 280 });
         return;
       }
       if (goPrev) {
-        translateX.value = withSpring(
-          coverWidth,
-          { damping: 22, stiffness: 220 },
-          (finished) => {
-            if (finished) {
-              runOnJS(onSwipePrev)();
-              translateX.value = 0;
-            }
-          },
-        );
+        runOnJS(onSwipePrev)();
+        translateX.value = withSpring(0, { damping: 22, stiffness: 280 });
         return;
       }
       translateX.value = withSpring(0, { damping: 20, stiffness: 240 });

@@ -3,6 +3,10 @@
  * 1. Play immédiat : cache local si dispo, sinon stream URL signée
  * 2. Prefetch cache en background pour le prochain play
  * 3. Progress via store externe (pas de setState Provider → pas de jank JS)
+ * 4. Mini-lecteur système : play/pause + prev/next (+ barre Media3)
+ *
+ * Important : ne pas rappeler setActiveForLockScreen à chaque play/pause
+ * (sinon la notif se détruit / se recrée et l’UI entre en boucle).
  */
 import {
   createAudioPlayer,
@@ -19,12 +23,16 @@ import {
   useRef,
   type ReactNode,
 } from 'react';
+import { AppState } from 'react-native';
 
+import { PlayerLockScreenSkipBridge } from '@/components/player/PlayerLockScreenSkipBridge';
 import { PlayerQueueAutoAdvance } from '@/components/player/PlayerQueueAutoAdvance';
+import { PrefetchQueueNeighbors } from '@/components/player/PrefetchQueueNeighbors';
 import {
   getCachedTrackUri,
   prefetchTrackAudio,
 } from '@/lib/audio/cacheTrackAudio';
+import { lockScreenMetadataFromTrack } from '@/lib/audio/lockScreenMetadata';
 import {
   resetPlayerProgress,
   setPlayerProgress,
@@ -49,8 +57,9 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const dispatch = useAppDispatch();
   const streamUrl = useAppSelector((s) => s.player.streamUrl);
   const isPlaying = useAppSelector((s) => s.player.isPlaying);
-  const trackId = useAppSelector((s) => s.player.track?.id);
-  const trackDurationMs = useAppSelector((s) => s.player.track?.durationMs);
+  const track = useAppSelector((s) => s.player.track);
+  const trackId = track?.id;
+  const trackDurationMs = track?.durationMs;
 
   const metaDurationSec =
     trackDurationMs != null && trackDurationMs > 0
@@ -65,11 +74,15 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const isPlayingRef = useRef(isPlaying);
   isPlayingRef.current = isPlaying;
   const loadGenRef = useRef(0);
+  const trackRef = useRef(track);
+  trackRef.current = track;
+  /** Ignore les status issus de nos propres play()/pause() (évite la boucle Redux ↔ natif). */
+  const ignorePlayingSyncRef = useRef(false);
+  const lockScreenActiveRef = useRef(false);
 
   useEffect(() => {
     void setAudioModeAsync({
       playsInSilentMode: true,
-      // Continuer la lecture écran verrouillé / app en arrière-plan
       shouldPlayInBackground: true,
       interruptionMode: 'doNotMix',
       allowsRecording: false,
@@ -83,11 +96,13 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       subscriptionRef.current?.remove();
       subscriptionRef.current = null;
       try {
+        playerRef.current?.clearLockScreenControls();
         playerRef.current?.remove();
       } catch {
         // ignore
       }
       playerRef.current = null;
+      lockScreenActiveRef.current = false;
     };
   }, []);
 
@@ -122,17 +137,41 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     }, 500);
   }, [stopProgressTimer]);
 
+  /** Active la notif média une seule fois par instance de player. */
+  const activateLockScreenOnce = useCallback((player: AudioPlayer) => {
+    const current = trackRef.current;
+    if (!current || lockScreenActiveRef.current) {
+      return;
+    }
+    try {
+      // Icônes skip = seek ±10 s natif ; PlayerLockScreenSkipBridge → prev/next file.
+      // Barre de progression : fournie par Media3 (session liée au player).
+      player.setActiveForLockScreen(
+        true,
+        lockScreenMetadataFromTrack(current),
+        { showSeekForward: true, showSeekBackward: true },
+      );
+      lockScreenActiveRef.current = true;
+    } catch {
+      // Expo Go / web
+    }
+  }, []);
+
   const destroyPlayer = useCallback(() => {
     stopProgressTimer();
     subscriptionRef.current?.remove();
     subscriptionRef.current = null;
     try {
+      if (lockScreenActiveRef.current) {
+        playerRef.current?.clearLockScreenControls();
+      }
       playerRef.current?.pause();
       playerRef.current?.remove();
     } catch {
       // ignore
     }
     playerRef.current = null;
+    lockScreenActiveRef.current = false;
   }, [stopProgressTimer]);
 
   // 1. Nouvelle URL → play immédiat (cache hit ou stream), prefetch async
@@ -146,9 +185,10 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
 
     const gen = ++loadGenRef.current;
     let cancelled = false;
+    let lockScreenTimer: ReturnType<typeof setTimeout> | null = null;
+    let syncUnlockTimer: ReturnType<typeof setTimeout> | null = null;
 
     try {
-      // Cache hit = fichier local ; sinon stream tout de suite (pas d’attente download)
       const cached = getCachedTrackUri(trackId);
       const sourceUri = cached ?? streamUrl;
 
@@ -165,7 +205,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
             return;
           }
           if (status.didJustFinish) {
-            // Fin de titre → auto-avance via PlayerQueueAutoAdvance
             dispatch(markTrackEnded());
             setPlayerProgress({
               currentTime: 0,
@@ -174,6 +213,20 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
                   ? Number(status.duration)
                   : metaDurationRef.current,
             });
+            return;
+          }
+          // Sync play/pause depuis la notif — seulement hors app, et pas pendant nos commandes
+          if (ignorePlayingSyncRef.current) {
+            return;
+          }
+          if (AppState.currentState === 'active') {
+            return;
+          }
+          if (
+            typeof status.playing === 'boolean' &&
+            status.playing !== isPlayingRef.current
+          ) {
+            dispatch(setPlaying(status.playing));
           }
         },
       );
@@ -183,13 +236,21 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
 
       if (isPlayingRef.current) {
         try {
+          ignorePlayingSyncRef.current = true;
           player.play();
+          lockScreenTimer = setTimeout(() => {
+            if (!cancelled && gen === loadGenRef.current) {
+              activateLockScreenOnce(player);
+            }
+          }, 250);
+          syncUnlockTimer = setTimeout(() => {
+            ignorePlayingSyncRef.current = false;
+          }, 600);
         } catch {
-          // ignore
+          ignorePlayingSyncRef.current = false;
         }
       }
 
-      // Prefetch en background pour le prochain play (sans bloquer)
       if (!cached) {
         prefetchTrackAudio(trackId, streamUrl);
       }
@@ -201,29 +262,64 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
 
     return () => {
       cancelled = true;
+      if (lockScreenTimer) {
+        clearTimeout(lockScreenTimer);
+      }
+      if (syncUnlockTimer) {
+        clearTimeout(syncUnlockTimer);
+      }
       destroyPlayer();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reload only on source change
-  }, [streamUrl, trackId, dispatch, destroyPlayer, startProgressTimer]);
+  }, [
+    streamUrl,
+    trackId,
+    dispatch,
+    destroyPlayer,
+    startProgressTimer,
+    activateLockScreenOnce,
+  ]);
 
-  // 2. Play / pause explicite
+  // 2. Play / pause UI — sans réactiver le lock screen (évite hide/show notif)
   useEffect(() => {
     const player = playerRef.current;
     if (!player) {
       return;
     }
     try {
+      ignorePlayingSyncRef.current = true;
       if (isPlaying) {
         if (!player.playing) {
           player.play();
         }
+        // Première activation seulement (si pas encore fait au load)
+        activateLockScreenOnce(player);
       } else if (player.playing) {
         player.pause();
       }
     } catch {
       // ignore
     }
-  }, [isPlaying]);
+    const t = setTimeout(() => {
+      ignorePlayingSyncRef.current = false;
+    }, 400);
+    return () => {
+      clearTimeout(t);
+    };
+  }, [isPlaying, activateLockScreenOnce]);
+
+  // 3. Métadonnées lock screen (titre / cover) sans recréer la session
+  useEffect(() => {
+    const player = playerRef.current;
+    if (!player || !track || !lockScreenActiveRef.current) {
+      return;
+    }
+    try {
+      player.updateLockScreenMetadata(lockScreenMetadataFromTrack(track));
+    } catch {
+      // ignore
+    }
+  }, [track]);
 
   const toggle = useCallback(() => {
     dispatch(setPlaying(!isPlayingRef.current));
@@ -253,7 +349,11 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
             : fallbackDur,
       });
       if (isPlayingRef.current) {
+        ignorePlayingSyncRef.current = true;
         player.play();
+        setTimeout(() => {
+          ignorePlayingSyncRef.current = false;
+        }, 400);
       }
     } catch {
       // seek pas encore possible
@@ -268,6 +368,8 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   return (
     <PlayerControlsContext.Provider value={controls}>
       <PlayerQueueAutoAdvance />
+      <PrefetchQueueNeighbors />
+      <PlayerLockScreenSkipBridge />
       {children}
     </PlayerControlsContext.Provider>
   );

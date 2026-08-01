@@ -2,7 +2,7 @@
   "expo": {
     "name": "Himba",
     "slug": "himba",
-    "version": "1.0.5",
+    "version": "1.0.7",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "himba",
@@ -20,7 +20,7 @@
     },
     "android": {
       "package": "fr.cellulenoire.himba",
-      "versionCode": 6,
+      "versionCode": 8,
       "adaptiveIcon": {
         "backgroundColor": "#0B0618",
         "foregroundImage": "./assets/images/adaptive-icon.png"

@@ -83,6 +83,8 @@ export const tracksApi = baseApi.injectEndpoints({
     }),
     getStreamUrl: build.query<SignedUrl, string>({
       query: (id) => `/tracks/${id}/stream`,
+      /** Garde le cache assez longtemps pour prev/next fluides. */
+      keepUnusedDataFor: 45 * 60,
       transformResponse: (response: unknown) => {
         const parsed = signedUrlSchema.safeParse(response);
         if (!parsed.success) {

@@ -14,14 +14,21 @@ const baseAudio = {
   mimeType: 'audio/mp4',
 };
 
+const baseCover = {
+  uri: 'file:///tmp/cover.jpg',
+  name: 'cover.jpg',
+  mimeType: 'image/jpeg',
+};
+
 describe('studioTrackSchema', () => {
-  it('accepte un titre gratuit avec audio et genre', () => {
+  it('accepte un titre gratuit hors album avec audio, cover et genre', () => {
     const parsed = studioTrackSchema.safeParse({
       title: 'Rebelle',
       artistName: 'FOFO',
       description: 'Une histoire',
       genre: 'AFRO',
       albumMode: 'none',
+      cover: baseCover,
       pricing: 'free',
       audio: baseAudio,
     });
@@ -31,12 +38,26 @@ describe('studioTrackSchema', () => {
     }
   });
 
+  it('refuse un single hors album sans cover', () => {
+    const parsed = studioTrackSchema.safeParse({
+      title: 'Rebelle',
+      artistName: 'FOFO',
+      genre: 'AFRO',
+      albumMode: 'none',
+      cover: null,
+      pricing: 'free',
+      audio: baseAudio,
+    });
+    expect(parsed.success).toBe(false);
+  });
+
   it('refuse sans fichier audio', () => {
     const parsed = studioTrackSchema.safeParse({
       title: 'Rebelle',
       artistName: 'FOFO',
       genre: 'RAP',
       albumMode: 'none',
+      cover: baseCover,
       pricing: 'free',
       audio: null,
     });
@@ -49,10 +70,25 @@ describe('studioTrackSchema', () => {
       artistName: 'FOFO',
       genre: 'RAP',
       albumMode: 'existing',
+      cover: null,
       pricing: 'free',
       audio: baseAudio,
     });
     expect(parsed.success).toBe(false);
+  });
+
+  it('accepte un titre sur album existant sans cover propre', () => {
+    const parsed = studioTrackSchema.safeParse({
+      title: 'Rebelle',
+      artistName: 'FOFO',
+      genre: 'RAP',
+      albumMode: 'existing',
+      albumId: 'alb1',
+      cover: null,
+      pricing: 'free',
+      audio: baseAudio,
+    });
+    expect(parsed.success).toBe(true);
   });
 
   it('refuse le mode new (création album hors formulaire titre)', () => {
@@ -61,6 +97,7 @@ describe('studioTrackSchema', () => {
       artistName: 'FOFO',
       genre: 'ZOUK',
       albumMode: 'new',
+      cover: baseCover,
       pricing: 'free',
       audio: baseAudio,
     });
@@ -73,6 +110,7 @@ describe('studioTrackSchema', () => {
       artistName: 'FOFO',
       genre: 'POP',
       albumMode: 'none',
+      cover: baseCover,
       pricing: 'paid',
       priceEuros: '',
       audio: baseAudio,
@@ -86,6 +124,7 @@ describe('studioTrackSchema', () => {
       artistName: 'FOFO',
       genre: 'POP',
       albumMode: 'none',
+      cover: baseCover,
       pricing: 'paid',
       priceEuros: '1,99',
       audio: baseAudio,
@@ -148,12 +187,13 @@ describe('audio formats (M4A / AAC / MP3)', () => {
     );
   });
 
-  it('accepte un titre studio avec fichier mp3', () => {
+  it('accepte un titre studio avec fichier mp3 et cover', () => {
     const parsed = studioTrackSchema.safeParse({
       title: 'Rebelle',
       artistName: 'FOFO',
       genre: 'AFRO',
       albumMode: 'none',
+      cover: baseCover,
       pricing: 'free',
       audio: {
         uri: 'file:///tmp/song.mp3',
