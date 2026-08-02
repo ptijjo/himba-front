@@ -138,7 +138,9 @@ export function HimbaTabBar({
         accessibilityRole="button"
         accessibilityState={focused ? { selected: true } : {}}
         accessibilityLabel={
-          options.tabBarAccessibilityLabel ?? label
+          routeName === 'explore' && unreadActus > 0
+            ? `${label}, ${unreadActus} non lue${unreadActus > 1 ? 's' : ''}`
+            : (options.tabBarAccessibilityLabel ?? label)
         }
         onPress={onPress}
         onLongPress={onLongPress}
@@ -146,19 +148,16 @@ export function HimbaTabBar({
         hitSlop={4}
       >
         <View style={styles.tabInner}>
-          <View style={styles.iconWrap}>
-            {icon}
-            {routeName === 'explore' && unreadActus > 0 ? (
-              <View
-                style={styles.badge}
-                accessibilityLabel={`${unreadActus} notification${unreadActus > 1 ? 's' : ''} non lue${unreadActus > 1 ? 's' : ''}`}
-              >
-                <Text style={styles.badgeText}>
-                  {unreadActus > 99 ? '99+' : String(unreadActus)}
-                </Text>
-              </View>
-            ) : null}
-          </View>
+          <View style={styles.iconWrap}>{icon}</View>
+          {/* Compteur sous la cloche — masqué si 0 non-lue */}
+          {routeName === 'explore' && unreadActus > 0 ? (
+            <Text
+              style={styles.underBellCount}
+              accessibilityLabel={`${unreadActus} actualité${unreadActus > 1 ? 's' : ''} non lue${unreadActus > 1 ? 's' : ''}`}
+            >
+              {unreadActus > 99 ? '99+' : String(unreadActus)}
+            </Text>
+          ) : null}
           <Text
             style={[
               styles.label,
@@ -234,7 +233,7 @@ const styles = StyleSheet.create({
   tabInner: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
+    gap: 2,
     minHeight: 48,
   },
   iconWrap: {
@@ -243,24 +242,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badge: {
-    position: 'absolute',
-    top: -6,
-    right: -10,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    paddingHorizontal: 4,
-    backgroundColor: himbaColors.alert,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: himbaColors.surface,
-  },
-  badgeText: {
-    fontSize: 10,
+  /** Compteur non-lues entre cloche et libellé Actus. */
+  underBellCount: {
+    minWidth: 16,
+    marginTop: -1,
+    marginBottom: -1,
+    fontSize: 11,
     fontWeight: '800',
-    color: himbaColors.ink,
+    color: himbaColors.ember,
+    textAlign: 'center',
+    lineHeight: 13,
   },
   label: {
     fontSize: 10,

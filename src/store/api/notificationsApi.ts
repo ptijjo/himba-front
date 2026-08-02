@@ -56,6 +56,20 @@ export const notificationsApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ['Notifications'],
     }),
+    deleteNotification: build.mutation<void, string>({
+      query: (id) => ({
+        url: `/notifications/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Notifications'],
+    }),
+    deleteAllNotifications: build.mutation<{ deleted: number }, void>({
+      query: () => ({
+        url: '/notifications/all',
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Notifications'],
+    }),
     upsertPushToken: build.mutation<unknown, UpsertPushTokenValues>({
       query: (body) => ({
         url: '/devices/push-token',
@@ -77,6 +91,8 @@ export const {
   useGetNotificationsQuery,
   useMarkNotificationReadMutation,
   useMarkAllNotificationsReadMutation,
+  useDeleteNotificationMutation,
+  useDeleteAllNotificationsMutation,
   useUpsertPushTokenMutation,
   useDeletePushTokenMutation,
 } = notificationsApi;

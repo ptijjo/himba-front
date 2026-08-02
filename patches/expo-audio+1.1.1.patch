@@ -1,8 +1,56 @@
+diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlayer.kt b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlayer.kt
+index 320062e..60d7e04 100644
+--- a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlayer.kt
++++ b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/AudioPlayer.kt
+@@ -32,6 +32,9 @@ import java.util.UUID
+ 
+ private const val PLAYBACK_STATUS_UPDATE = "playbackStatusUpdate"
+ private const val AUDIO_SAMPLE_UPDATE = "audioSampleUpdate"
++/** Lock screen / notif : prev/next file (pas seek ±10 s). */
++const val REMOTE_NEXT_TRACK_EVENT = "onRemoteNextTrack"
++const val REMOTE_PREVIOUS_TRACK_EVENT = "onRemotePreviousTrack"
+ private const val SEEK_JUMP_INTERVAL_MS: Long = 10_000
+ 
+ @UnstableApi
+@@ -193,6 +196,16 @@ class AudioPlayer(
+     }
+   }
+ 
++  /** Bouton next système → JS (file Himba), sans déplacer la tête de lecture. */
++  fun emitRemoteNextTrack() {
++    emit(REMOTE_NEXT_TRACK_EVENT, emptyMap<String, Any?>())
++  }
++
++  /** Bouton previous système → JS (file Himba), sans déplacer la tête de lecture. */
++  fun emitRemotePreviousTrack() {
++    emit(REMOTE_PREVIOUS_TRACK_EVENT, emptyMap<String, Any?>())
++  }
++
+   private fun extractAmplitudes(chunk: ByteArray): List<Float> = chunk.map { byte ->
+     val unsignedByte = byte.toInt() and 0xFF
+     ((unsignedByte - 128).toDouble() / 128.0).toFloat()
 diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
-index 04486e2..1a0850a 100644
+index 04486e2..6d59358 100644
 --- a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
 +++ b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioControlsService.kt
-@@ -134,40 +134,10 @@ class AudioControlsService : MediaSessionService() {
+@@ -61,13 +61,9 @@ class AudioControlsService : MediaSessionService() {
+         if (player.isPlaying) player.pause() else player.play()
+       }
+ 
+-      ACTION_SEEK_FORWARD -> withPlayerOnAppThread { player ->
+-        player.seekTo(player.currentPosition + SEEK_INTERVAL_MS)
+-      }
+-
+-      ACTION_SEEK_BACKWARD -> withPlayerOnAppThread { player ->
+-        player.seekTo(player.currentPosition - SEEK_INTERVAL_MS)
+-      }
++      // Intent legacy : même sémantique que les SessionCommand custom (skip file, pas seek).
++      ACTION_SEEK_FORWARD -> emitRemoteSkipNext()
++      ACTION_SEEK_BACKWARD -> emitRemoteSkipPrevious()
+     }
+ 
+     // Ensure channel exists and update current notification
+@@ -134,40 +130,10 @@ class AudioControlsService : MediaSessionService() {
  
    private fun updateSessionCustomLayout(isPlaying: Boolean) {
      val session = mediaSession ?: return
@@ -47,7 +95,7 @@ index 04486e2..1a0850a 100644
    }
  
    private fun postOrStartForegroundNotification(startInForeground: Boolean) {
-@@ -222,7 +192,7 @@ class AudioControlsService : MediaSessionService() {
+@@ -222,7 +188,7 @@ class AudioControlsService : MediaSessionService() {
      if (player != null) {
        mediaSession?.release()
  
@@ -56,10 +104,26 @@ index 04486e2..1a0850a 100644
          .setCallback(AudioMediaSessionCallback())
          .build()
  
-@@ -351,6 +321,53 @@ class AudioControlsService : MediaSessionService() {
+@@ -351,6 +317,69 @@ class AudioControlsService : MediaSessionService() {
  
      fun getInstance(): AudioControlsService? = instance
  
++    /** Notifie JS (onRemoteNextTrack) depuis le MediaSession — pas de seek. */
++    @JvmStatic
++    fun emitRemoteSkipNext() {
++      Handler(Looper.getMainLooper()).post {
++        instance?.currentPlayer?.emitRemoteNextTrack()
++      }
++    }
++
++    /** Notifie JS (onRemotePreviousTrack) depuis le MediaSession — pas de seek. */
++    @JvmStatic
++    fun emitRemoteSkipPrevious() {
++      Handler(Looper.getMainLooper()).post {
++        instance?.currentPlayer?.emitRemotePreviousTrack()
++      }
++    }
++
 +    /**
 +     * Layout transport : prev | play/pause | next — icônes Deezer (ICON_PREVIOUS/NEXT).
 +     * SessionCommand custom pour qu’Android 13+ n’impose pas les flèches rewind.
@@ -111,17 +175,16 @@ index 04486e2..1a0850a 100644
        context: Context,
        player: AudioPlayer?,
 diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioMediaSessionCallback.kt b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioMediaSessionCallback.kt
-index 839aaef..f34abfe 100644
+index 839aaef..2ce98ae 100644
 --- a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioMediaSessionCallback.kt
 +++ b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/AudioMediaSessionCallback.kt
-@@ -1,14 +1,22 @@
+@@ -1,14 +1,20 @@
  package expo.modules.audio.service
  
  import android.os.Bundle
 +import androidx.annotation.OptIn
  import androidx.media3.common.Player
 +import androidx.media3.common.util.UnstableApi
-+import androidx.media3.session.CommandButton
  import androidx.media3.session.MediaSession
  import androidx.media3.session.SessionCommand
  import androidx.media3.session.SessionResult
@@ -130,16 +193,15 @@ index 839aaef..f34abfe 100644
  import com.google.common.util.concurrent.ListenableFuture
  
 +/**
-+ * Android 13+ ignore les icônes de setCustomLayout si COMMAND_SEEK_TO_PREVIOUS/NEXT
-+ * sont exposés — le système (Samsung) dessine alors des flèches rewind/forward.
-+ *
-+ * On masque toutes les commandes skip/seek système, et on publie des boutons
-+ * custom ICON_PREVIOUS / ICON_NEXT (comme Deezer).
++ * Double filet :
++ * 1. Boutons custom ICON_PREVIOUS/NEXT → SessionCommand → emit skip
++ * 2. Commandes player SEEK_FORWARD/BACK laissées dispo pour OEM qui
++ *    ignorent le custom layout — SeekAsSkipPlayer détourne en skip file.
 + */
  @OptIn(UnstableApi::class)
  class AudioMediaSessionCallback : MediaSession.Callback {
    override fun onConnect(
-@@ -16,27 +24,41 @@ class AudioMediaSessionCallback : MediaSession.Callback {
+@@ -16,27 +22,39 @@ class AudioMediaSessionCallback : MediaSession.Callback {
      controller: MediaSession.ControllerInfo
    ): MediaSession.ConnectionResult {
      try {
@@ -151,20 +213,16 @@ index 839aaef..f34abfe 100644
          .setAvailablePlayerCommands(
            MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS.buildUpon()
 -            // Keep seek commands for the seek slider
-+            // Barre de progression / scrub uniquement
              .add(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
--            .add(Player.COMMAND_SEEK_FORWARD)
--            .add(Player.COMMAND_SEEK_BACK)
++            // Laisser SEEK_FORWARD/BACK : OEM (Xiaomi) s’en sert pour les boutons.
++            // SeekAsSkipPlayer les détourne vers skip file.
+             .add(Player.COMMAND_SEEK_FORWARD)
+             .add(Player.COMMAND_SEEK_BACK)
 -            // Remove track navigation commands
--            .remove(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
--            .remove(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
-+            // Masquer TOUTES les commandes skip/rewind système
-+            .remove(Player.COMMAND_SEEK_FORWARD)
-+            .remove(Player.COMMAND_SEEK_BACK)
-             .remove(Player.COMMAND_SEEK_TO_PREVIOUS)
-             .remove(Player.COMMAND_SEEK_TO_NEXT)
-+            .remove(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
-+            .remove(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
+             .remove(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
+             .remove(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
+-            .remove(Player.COMMAND_SEEK_TO_PREVIOUS)
+-            .remove(Player.COMMAND_SEEK_TO_NEXT)
              .build()
          )
          .setAvailableSessionCommands(
@@ -190,30 +248,25 @@ index 839aaef..f34abfe 100644
          .build()
      } catch (e: Exception) {
        return MediaSession.ConnectionResult.reject()
-@@ -51,10 +73,15 @@ class AudioMediaSessionCallback : MediaSession.Callback {
+@@ -51,10 +69,10 @@ class AudioMediaSessionCallback : MediaSession.Callback {
    ): ListenableFuture<SessionResult> {
      when (command.customAction) {
        AudioControlsService.ACTION_SEEK_FORWARD -> {
 -        session.player.seekTo(session.player.currentPosition + AudioControlsService.SEEK_INTERVAL_MS)
-+        session.player.seekTo(
-+          session.player.currentPosition + AudioControlsService.SEEK_INTERVAL_MS,
-+        )
++        AudioControlsService.emitRemoteSkipNext()
        }
        AudioControlsService.ACTION_SEEK_BACKWARD -> {
 -        session.player.seekTo(session.player.currentPosition - AudioControlsService.SEEK_INTERVAL_MS)
-+        session.player.seekTo(
-+          (session.player.currentPosition - AudioControlsService.SEEK_INTERVAL_MS)
-+            .coerceAtLeast(0L),
-+        )
++        AudioControlsService.emitRemoteSkipPrevious()
        }
      }
      return super.onCustomCommand(session, controller, command, args)
 diff --git a/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/SeekAsSkipPlayer.kt b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/SeekAsSkipPlayer.kt
 new file mode 100644
-index 0000000..269bbbb
+index 0000000..eeaeab4
 --- /dev/null
 +++ b/node_modules/expo-audio/android/src/main/java/expo/modules/audio/service/SeekAsSkipPlayer.kt
-@@ -0,0 +1,38 @@
+@@ -0,0 +1,73 @@
 +package expo.modules.audio.service
 +
 +import androidx.annotation.OptIn
@@ -222,41 +275,135 @@ index 0000000..269bbbb
 +import androidx.media3.common.util.UnstableApi
 +
 +/**
-+ * Masque les commandes skip/rewind du ExoPlayer sous-jacent.
-+ * Les boutons notif prev/next sont des SessionCommand custom (voir Callback).
++ * OEM (Xiaomi / Samsung) appellent souvent seekForward/seekBack (±10 s)
++ * même si on publie des boutons custom prev/next.
++ *
++ * On laisse les commandes SEEK_* disponibles (sinon pas de boutons),
++ * mais on détourne seekForward/seekBack / seek ±10 s → skip file JS.
++ * Le scrub libre (barre) passe encore par seekTo hors fenêtre ±10 s.
 + */
 +@OptIn(UnstableApi::class)
 +class SeekAsSkipPlayer(player: Player) : ForwardingPlayer(player) {
-+  override fun isCommandAvailable(command: @Player.Command Int): Boolean {
-+    return when (command) {
-+      Player.COMMAND_SEEK_BACK,
-+      Player.COMMAND_SEEK_FORWARD,
-+      Player.COMMAND_SEEK_TO_PREVIOUS,
-+      Player.COMMAND_SEEK_TO_NEXT,
-+      Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM,
-+      Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
-+      -> false
-+      else -> super.isCommandAvailable(command)
++
++  override fun seekForward() {
++    AudioControlsService.emitRemoteSkipNext()
++  }
++
++  override fun seekBack() {
++    AudioControlsService.emitRemoteSkipPrevious()
++  }
++
++  override fun seekToNext() {
++    AudioControlsService.emitRemoteSkipNext()
++  }
++
++  override fun seekToPrevious() {
++    AudioControlsService.emitRemoteSkipPrevious()
++  }
++
++  override fun seekToNextMediaItem() {
++    AudioControlsService.emitRemoteSkipNext()
++  }
++
++  override fun seekToPreviousMediaItem() {
++    AudioControlsService.emitRemoteSkipPrevious()
++  }
++
++  override fun seekTo(positionMs: Long) {
++    val current = currentPosition
++    val delta = positionMs - current
++    val jump = AudioControlsService.SEEK_INTERVAL_MS
++    // Bouton système ±10 s (souvent via seekTo(current ± 10000))
++    if (delta in (jump - 2000)..(jump + 2000)) {
++      AudioControlsService.emitRemoteSkipNext()
++      return
 +    }
++    if (delta in -(jump + 2000)..-(jump - 2000)) {
++      AudioControlsService.emitRemoteSkipPrevious()
++      return
++    }
++    // Rewind clampé près du début
++    if (current in 1..(jump + 2000) && positionMs < 500L && delta < -400L) {
++      AudioControlsService.emitRemoteSkipPrevious()
++      return
++    }
++    super.seekTo(positionMs)
 +  }
 +
 +  override fun getAvailableCommands(): Player.Commands {
++    // Garder SEEK_BACK/FORWARD visibles pour que l’OEM affiche les boutons
++    // (détournés ci-dessus). Masquer seulement la nav multi-item native.
 +    return super.getAvailableCommands()
 +      .buildUpon()
-+      .remove(Player.COMMAND_SEEK_BACK)
-+      .remove(Player.COMMAND_SEEK_FORWARD)
-+      .remove(Player.COMMAND_SEEK_TO_PREVIOUS)
-+      .remove(Player.COMMAND_SEEK_TO_NEXT)
 +      .remove(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
 +      .remove(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
 +      .build()
 +  }
 +}
+diff --git a/node_modules/expo-audio/build/AudioEventKeys.js b/node_modules/expo-audio/build/AudioEventKeys.js
+index fefa9c3..26cdf25 100644
+--- a/node_modules/expo-audio/build/AudioEventKeys.js
++++ b/node_modules/expo-audio/build/AudioEventKeys.js
+@@ -1,4 +1,7 @@
+ export const PLAYBACK_STATUS_UPDATE = 'playbackStatusUpdate';
+ export const AUDIO_SAMPLE_UPDATE = 'audioSampleUpdate';
+ export const RECORDING_STATUS_UPDATE = 'recordingStatusUpdate';
+-//# sourceMappingURL=AudioEventKeys.js.map
+\ No newline at end of file
++/** Lock screen / notif — next titre (patch Himba). */
++export const REMOTE_NEXT_TRACK_EVENT = 'onRemoteNextTrack';
++/** Lock screen / notif — previous titre (patch Himba). */
++export const REMOTE_PREVIOUS_TRACK_EVENT = 'onRemotePreviousTrack';
+diff --git a/node_modules/expo-audio/build/AudioModule.types.d.ts b/node_modules/expo-audio/build/AudioModule.types.d.ts
+index b30a75a..0fbec03 100644
+--- a/node_modules/expo-audio/build/AudioModule.types.d.ts
++++ b/node_modules/expo-audio/build/AudioModule.types.d.ts
+@@ -209,6 +209,10 @@ export type AudioEvents = {
+     playbackStatusUpdate(status: AudioStatus): void;
+     /** Fired when audio sampling is enabled and new sample data is available. */
+     audioSampleUpdate(data: AudioSample): void;
++    /** Lock screen / notification next (Himba patch — no ±10s seek). */
++    onRemoteNextTrack(): void;
++    /** Lock screen / notification previous (Himba patch — no ±10s seek). */
++    onRemotePreviousTrack(): void;
+ };
+ export declare class AudioRecorder extends SharedObject<RecordingEvents> {
+     /**
+diff --git a/node_modules/expo-audio/ios/AudioPlayer.swift b/node_modules/expo-audio/ios/AudioPlayer.swift
+index 1dbce09..c1af296 100644
+--- a/node_modules/expo-audio/ios/AudioPlayer.swift
++++ b/node_modules/expo-audio/ios/AudioPlayer.swift
+@@ -4,6 +4,8 @@ import Combine
+ private enum AudioConstants {
+   static let playbackStatus = "playbackStatusUpdate"
+   static let audioSample = "audioSampleUpdate"
++  static let remoteNextTrack = "onRemoteNextTrack"
++  static let remotePreviousTrack = "onRemotePreviousTrack"
+ }
+ 
+ public class AudioPlayer: SharedRef<AVPlayer> {
+@@ -129,6 +131,16 @@ public class AudioPlayer: SharedRef<AVPlayer> {
+     }
+   }
+ 
++  /// Bouton next système → JS (file), sans seek ±10 s.
++  func emitRemoteNextTrack() {
++    self.emit(event: AudioConstants.remoteNextTrack, arguments: [:])
++  }
++
++  /// Bouton previous système → JS (file), sans seek ±10 s.
++  func emitRemotePreviousTrack() {
++    self.emit(event: AudioConstants.remotePreviousTrack, arguments: [:])
++  }
++
+   func seekTo(seconds: Double, toleranceMillisBefore: Double? = nil, toleranceMillisAfter: Double? = nil) async {
+     let time = CMTime(seconds: seconds, preferredTimescale: CMTimeScale(NSEC_PER_SEC))
+     let toleranceBefore = toleranceMillisBefore.map {
 diff --git a/node_modules/expo-audio/ios/MediaController.swift b/node_modules/expo-audio/ios/MediaController.swift
-index 2dd3fb2..7a9c964 100644
+index 2dd3fb2..a203be5 100644
 --- a/node_modules/expo-audio/ios/MediaController.swift
 +++ b/node_modules/expo-audio/ios/MediaController.swift
-@@ -173,29 +173,26 @@ class MediaController {
+@@ -173,31 +173,20 @@ class MediaController {
        return .success
      }
  
@@ -264,17 +411,17 @@ index 2dd3fb2..7a9c964 100644
 -    remoteCommandCenter.skipForwardCommand.addTarget { [weak self] event in
 -      guard let player = self?.activePlayer,
 -      let event = event as? MPSkipIntervalCommandEvent else {
-+    // Prev/next track icons (not ±10s skip icons) — seek ±10s so JS can map to queue
++    // Prev/next : événement JS (file Himba), pas de seek ±10 s.
 +    remoteCommandCenter.nextTrackCommand.addTarget { [weak self] _ in
 +      guard let player = self?.activePlayer else {
          return .commandFailed
        }
- 
-       let currentTime = player.ref.currentTime()
+-
+-      let currentTime = player.ref.currentTime()
 -      let seekTime = currentTime + CMTime(seconds: event.interval, preferredTimescale: 1)
-+      let seekTime = currentTime + CMTime(seconds: 10.0, preferredTimescale: 1)
-       player.ref.seek(to: seekTime, toleranceBefore: .zero, toleranceAfter: .zero)
- 
+-      player.ref.seek(to: seekTime, toleranceBefore: .zero, toleranceAfter: .zero)
+-
++      player.emitRemoteNextTrack()
        return .success
      }
  
@@ -286,14 +433,16 @@ index 2dd3fb2..7a9c964 100644
 +      guard let player = self?.activePlayer else {
          return .commandFailed
        }
- 
-       let currentTime = player.ref.currentTime()
+-
+-      let currentTime = player.ref.currentTime()
 -      let seekTime = currentTime - CMTime(seconds: event.interval, preferredTimescale: 1)
-+      let seekTime = currentTime - CMTime(seconds: 10.0, preferredTimescale: 1)
-       player.ref.seek(to: seekTime, toleranceBefore: .zero, toleranceAfter: .zero)
- 
+-      player.ref.seek(to: seekTime, toleranceBefore: .zero, toleranceAfter: .zero)
+-
++      player.emitRemotePreviousTrack()
        return .success
-@@ -205,8 +202,10 @@ class MediaController {
+     }
+ 
+@@ -205,8 +194,10 @@ class MediaController {
      remoteCommandCenter.pauseCommand.isEnabled = true
      remoteCommandCenter.togglePlayPauseCommand.isEnabled = true
      remoteCommandCenter.changePlaybackPositionCommand.isEnabled = true
@@ -306,7 +455,7 @@ index 2dd3fb2..7a9c964 100644
    }
  
    private func disableRemoteCommands() {
-@@ -216,13 +215,17 @@ class MediaController {
+@@ -216,13 +207,17 @@ class MediaController {
      remoteCommandCenter.changePlaybackPositionCommand.isEnabled = false
      remoteCommandCenter.skipForwardCommand.isEnabled = false
      remoteCommandCenter.skipBackwardCommand.isEnabled = false
@@ -330,3 +479,30 @@ index 2dd3fb2..7a9c964 100644
 +    remoteCommandCenter.previousTrackCommand.removeTarget(nil)
    }
  }
+diff --git a/node_modules/expo-audio/src/AudioEventKeys.ts b/node_modules/expo-audio/src/AudioEventKeys.ts
+index 6d3016b..26cdf25 100644
+--- a/node_modules/expo-audio/src/AudioEventKeys.ts
++++ b/node_modules/expo-audio/src/AudioEventKeys.ts
+@@ -1,3 +1,7 @@
+ export const PLAYBACK_STATUS_UPDATE = 'playbackStatusUpdate';
+ export const AUDIO_SAMPLE_UPDATE = 'audioSampleUpdate';
+ export const RECORDING_STATUS_UPDATE = 'recordingStatusUpdate';
++/** Lock screen / notif — next titre (patch Himba). */
++export const REMOTE_NEXT_TRACK_EVENT = 'onRemoteNextTrack';
++/** Lock screen / notif — previous titre (patch Himba). */
++export const REMOTE_PREVIOUS_TRACK_EVENT = 'onRemotePreviousTrack';
+diff --git a/node_modules/expo-audio/src/AudioModule.types.ts b/node_modules/expo-audio/src/AudioModule.types.ts
+index 376f638..c5270d7 100644
+--- a/node_modules/expo-audio/src/AudioModule.types.ts
++++ b/node_modules/expo-audio/src/AudioModule.types.ts
+@@ -259,6 +259,10 @@ export type AudioEvents = {
+   playbackStatusUpdate(status: AudioStatus): void;
+   /** Fired when audio sampling is enabled and new sample data is available. */
+   audioSampleUpdate(data: AudioSample): void;
++  /** Lock screen / notification next (Himba patch — no ±10s seek). */
++  onRemoteNextTrack(): void;
++  /** Lock screen / notification previous (Himba patch — no ±10s seek). */
++  onRemotePreviousTrack(): void;
+ };
+ 
+ export declare class AudioRecorder extends SharedObject<RecordingEvents> {

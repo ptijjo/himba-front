@@ -11,6 +11,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ReportModal } from '@/components/reports/ReportModal';
+import { EntityRatingBlock } from '@/components/ratings/EntityRatingBlock';
+import { TrackActionsSheet } from '@/components/tracks/TrackActionsSheet';
 import { TrackRow } from '@/components/tracks/TrackRow';
 import { Button } from '@/components/ui/Button';
 import { himbaColors } from '@/constants/theme';
@@ -18,6 +21,7 @@ import { usePlayTrack } from '@/hooks/usePlayTrack';
 import { getErrorMessage } from '@/lib/errors/apiError';
 import { openLecturePlayer } from '@/lib/navigation/openLecturePlayer';
 import { openAlbum, openArtistProfile } from '@/lib/navigation/openProfile';
+import type { Track } from '@/schemas/tracks';
 import { useGetAlbumsQuery } from '@/store/api/albumsApi';
 import { useGetArtistQuery } from '@/store/api/artistsApi';
 import {
@@ -69,6 +73,9 @@ export default function ArtistPublicProfileScreen() {
   const [unfollowArtist, { isLoading: unfollowing }] =
     useUnfollowArtistMutation();
   const [actionError, setActionError] = useState<string | null>(null);
+  const [showReportArtist, setShowReportArtist] = useState(false);
+  const [menuTrack, setMenuTrack] = useState<Track | null>(null);
+  const [reportTrack, setReportTrack] = useState<Track | null>(null);
 
   const isFollowing = useMemo(
     () => Boolean(artistId && myFollows.some((f) => f.artistId === artistId)),
@@ -191,12 +198,18 @@ export default function ArtistPublicProfileScreen() {
                 <Text style={styles.statLabel}>abonnements</Text>
               </View>
             </View>
+            <View className="mt-3 w-full items-center px-2">
+              <EntityRatingBlock
+                summary={artist.ratingSummary}
+                target={{ artistId }}
+              />
+            </View>
             {bio ? (
               <Text style={styles.bio} numberOfLines={4}>
                 {bio}
               </Text>
             ) : null}
-            <View className="mt-3 w-full max-w-[220px]">
+            <View className="mt-3 w-full max-w-[220px] gap-2">
               <Button
                 label={isFollowing ? 'Suivi' : 'Suivre'}
                 variant={isFollowing ? 'secondary' : 'primary'}
@@ -204,6 +217,11 @@ export default function ArtistPublicProfileScreen() {
                 onPress={() => {
                   void onToggleFollow();
                 }}
+              />
+              <Button
+                label="Signaler"
+                variant="secondary"
+                onPress={() => setShowReportArtist(true)}
               />
             </View>
             {actionError ? (
@@ -257,6 +275,7 @@ export default function ArtistPublicProfileScreen() {
                   openLecturePlayer();
                 });
               }}
+              onMenuPress={setMenuTrack}
             />
           ))}
         </Section>
@@ -313,6 +332,39 @@ export default function ArtistPublicProfileScreen() {
           })}
         </Section>
       </ScrollView>
+
+      <TrackActionsSheet
+        visible={menuTrack !== null}
+        title={menuTrack?.title}
+        onClose={() => setMenuTrack(null)}
+        actions={
+          menuTrack
+            ? [
+                {
+                  key: 'report',
+                  label: 'Signaler',
+                  onPress: () => setReportTrack(menuTrack),
+                },
+              ]
+            : []
+        }
+      />
+
+      <ReportModal
+        visible={showReportArtist}
+        targetType="ARTIST"
+        targetId={artistId}
+        targetLabel={displayName}
+        onClose={() => setShowReportArtist(false)}
+      />
+
+      <ReportModal
+        visible={reportTrack !== null}
+        targetType="TRACK"
+        targetId={reportTrack?.id ?? ''}
+        targetLabel={reportTrack?.title}
+        onClose={() => setReportTrack(null)}
+      />
     </SafeAreaView>
   );
 }

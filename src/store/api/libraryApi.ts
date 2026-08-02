@@ -168,6 +168,16 @@ export const libraryApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ['Playlists'],
     }),
+    removePlaylistTrack: build.mutation<
+      void,
+      { playlistId: string; trackId: string }
+    >({
+      query: ({ playlistId, trackId }) => ({
+        url: `/playlists/${playlistId}/tracks/${trackId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Playlists'],
+    }),
     deletePlaylist: build.mutation<void, string>({
       query: (playlistId) => ({
         url: `/playlists/${playlistId}`,
@@ -193,5 +203,6 @@ export const {
   useLazyGetPlaylistQuery,
   useCreatePlaylistMutation,
   useAddPlaylistTrackMutation,
+  useRemovePlaylistTrackMutation,
   useDeletePlaylistMutation,
 } = libraryApi;

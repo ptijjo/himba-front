@@ -1,3 +1,4 @@
+import { ratingSummarySchema } from '@/schemas/ratings';
 import { trackPricingSchema } from '@/schemas/studio';
 import { moneyEurosSchema } from '@/schemas/tracks';
 import { z } from 'zod';
@@ -39,6 +40,7 @@ export const albumDetailSchema = albumSchema.extend({
       }),
     )
     .optional(),
+  ratingSummary: ratingSummarySchema.optional(),
 });
 
 export const albumListSchema = z.object({

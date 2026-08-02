@@ -10,6 +10,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AddToPlaylistModal } from '@/components/library/AddToPlaylistModal';
+import { ReportModal } from '@/components/reports/ReportModal';
+import { TrackActionsSheet } from '@/components/tracks/TrackActionsSheet';
 import { TrackRow } from '@/components/tracks/TrackRow';
 import { Button } from '@/components/ui/Button';
 import { himbaColors } from '@/constants/theme';
@@ -20,11 +23,12 @@ import type { Track } from '@/schemas/tracks';
 import {
   useAddPlaylistTrackMutation,
   useGetPlaylistQuery,
+  useRemovePlaylistTrackMutation,
 } from '@/store/api/libraryApi';
 import { useGetTracksQuery } from '@/store/api/tracksApi';
 
 /**
- * Détail playlist — liste des titres, lecture + file pour défiler.
+ * Détail playlist — clic titre → lecteur + file ; menu ⋮ → retirer / autre playlist.
  */
 export default function PlaylistDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -60,12 +64,17 @@ export default function PlaylistDetailScreen() {
   const [showAdd, setShowAdd] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [formError, setFormError] = useState<string | null>(null);
+  const [menuTrack, setMenuTrack] = useState<Track | null>(null);
+  const [playlistTrack, setPlaylistTrack] = useState<Track | null>(null);
+  const [reportTrack, setReportTrack] = useState<Track | null>(null);
+
   const { data: catalogPage, isLoading: loadingCatalog } = useGetTracksQuery({
     limit: 50,
   });
   const catalog = catalogPage?.items ?? [];
   const [addPlaylistTrack, { isLoading: adding }] =
     useAddPlaylistTrackMutation();
+  const [removePlaylistTrack] = useRemovePlaylistTrackMutation();
 
   const alreadyIn = useMemo(() => {
     const ids = new Set<string>();
@@ -246,11 +255,64 @@ export default function PlaylistDetailScreen() {
             </Text>
           ) : (
             tracks.map((track) => (
-              <TrackRow key={track.id} track={track} onPress={onPlayOne} />
+              <TrackRow
+                key={track.id}
+                track={track}
+                onPress={onPlayOne}
+                onMenuPress={setMenuTrack}
+              />
             ))
           )}
         </View>
       </ScrollView>
+
+      <TrackActionsSheet
+        visible={menuTrack !== null}
+        title={menuTrack?.title}
+        subtitle={menuTrack?.artist?.displayName ?? menuTrack?.genre ?? undefined}
+        onClose={() => setMenuTrack(null)}
+        actions={
+          menuTrack
+            ? [
+                {
+                  key: 'add-other',
+                  label: 'Ajouter à une autre playlist',
+                  onPress: () => setPlaylistTrack(menuTrack),
+                },
+                {
+                  key: 'report',
+                  label: 'Signaler',
+                  onPress: () => setReportTrack(menuTrack),
+                },
+                {
+                  key: 'remove',
+                  label: 'Supprimer de la playlist',
+                  destructive: true,
+                  onPress: () => {
+                    void removePlaylistTrack({
+                      playlistId,
+                      trackId: menuTrack.id,
+                    });
+                  },
+                },
+              ]
+            : []
+        }
+      />
+
+      <AddToPlaylistModal
+        track={playlistTrack}
+        visible={playlistTrack !== null}
+        onClose={() => setPlaylistTrack(null)}
+      />
+
+      <ReportModal
+        visible={reportTrack !== null}
+        targetType="TRACK"
+        targetId={reportTrack?.id ?? ''}
+        targetLabel={reportTrack?.title}
+        onClose={() => setReportTrack(null)}
+      />
     </SafeAreaView>
   );
 }

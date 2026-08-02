@@ -20,6 +20,7 @@ import {
 } from '@/components/player/PlayerControlIcons';
 import { PlayerCoverSwipe } from '@/components/player/PlayerCoverSwipe';
 import { PlayerSeekBar } from '@/components/player/PlayerSeekBar';
+import { EntityRatingBlock } from '@/components/ratings/EntityRatingBlock';
 import { TrackRow } from '@/components/tracks/TrackRow';
 import { himbaColors, homeMedia } from '@/constants/theme';
 import { usePlayTrack } from '@/hooks/usePlayTrack';
@@ -29,6 +30,7 @@ import {
 } from '@/lib/player/queueNavigation';
 import { useAudioPlayerControls } from '@/providers/AudioPlayerProvider';
 import { useAppDispatch, useAppSelector } from '@/store';
+import { useGetTrackQuery } from '@/store/api/tracksApi';
 import {
   cycleRepeatMode,
   toggleShuffle,
@@ -45,6 +47,11 @@ export default function LectureScreen() {
   const { toggle } = useAudioPlayerControls();
   const { track, isPlaying, needsPurchase, shuffle, repeatMode, queue } =
     useAppSelector((s) => s.player);
+
+  const trackId = track?.id ?? '';
+  const { data: trackDetail } = useGetTrackQuery(trackId, {
+    skip: !trackId,
+  });
 
   const queueTracks = queue;
   const cover =
@@ -158,6 +165,14 @@ export default function LectureScreen() {
               ? (track.artist?.displayName ?? track.genre ?? 'Himba')
               : 'Ouvre une playlist ou choisis un titre'}
           </Text>
+          {trackId ? (
+            <View className="mt-3 items-center">
+              <EntityRatingBlock
+                summary={trackDetail?.ratingSummary}
+                target={{ trackId }}
+              />
+            </View>
+          ) : null}
         </View>
 
         <PlayerSeekBar />

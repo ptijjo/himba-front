@@ -11,6 +11,8 @@ import '@/store/api/artistsApi';
 import '@/store/api/notificationsApi';
 import '@/store/api/authApi';
 import '@/store/api/libraryApi';
+import '@/store/api/ratingsApi';
+import '@/store/api/reportsApi';
 import '@/store/api/tracksApi';
 import '@/store/api/usersApi';
 

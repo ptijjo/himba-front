@@ -1,6 +1,7 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Pressable,
   Text,
@@ -8,10 +9,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { TrackActionsSheet } from '@/components/tracks/TrackActionsSheet';
 import { himbaColors } from '@/constants/theme';
 import { openArtistProfile, openUserProfile } from '@/lib/navigation/openProfile';
 import type { AppNotification } from '@/schemas/notifications';
 import {
+  useDeleteAllNotificationsMutation,
+  useDeleteNotificationMutation,
   useGetNotificationsQuery,
   useMarkAllNotificationsReadMutation,
   useMarkNotificationReadMutation,
@@ -35,7 +39,8 @@ function isUnread(n: AppNotification): boolean {
 }
 
 /**
- * Onglet Actus — sorties des artistes suivis + nouveaux followers (in-app + push).
+ * Onglet Actus — sorties + followers.
+ * Non-lues : pastille + gras. Menu ⋮ : supprimer. Header : tout lire / tout effacer.
  */
 export default function ActusScreen() {
   const { data, isLoading, isFetching, refetch } = useGetNotificationsQuery({
@@ -44,9 +49,15 @@ export default function ActusScreen() {
   const [markRead] = useMarkNotificationReadMutation();
   const [markAllRead, { isLoading: markingAll }] =
     useMarkAllNotificationsReadMutation();
+  const [deleteOne] = useDeleteNotificationMutation();
+  const [deleteAll, { isLoading: clearing }] =
+    useDeleteAllNotificationsMutation();
+
+  const [menuItem, setMenuItem] = useState<AppNotification | null>(null);
 
   const items = data?.items ?? [];
   const hasUnread = items.some(isUnread);
+  const hasItems = items.length > 0;
 
   const onPressItem = useCallback(
     (item: AppNotification) => {
@@ -61,6 +72,23 @@ export default function ActusScreen() {
     },
     [markRead],
   );
+
+  const onConfirmClearAll = () => {
+    Alert.alert(
+      'Tout effacer',
+      'Supprimer toutes les actualités ? Cette action est définitive.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Effacer',
+          style: 'destructive',
+          onPress: () => {
+            void deleteAll();
+          },
+        },
+      ],
+    );
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-himba-night" edges={['top']}>
@@ -77,19 +105,34 @@ export default function ActusScreen() {
               Actus
             </Text>
           </View>
-          {hasUnread ? (
-            <Pressable
-              onPress={() => void markAllRead()}
-              disabled={markingAll}
-              accessibilityRole="button"
-              accessibilityLabel="Tout marquer comme lu"
-              className="min-h-[44px] justify-center"
-            >
-              <Text className="text-sm font-semibold text-himba-saffron">
-                Tout lire
-              </Text>
-            </Pressable>
-          ) : null}
+          <View className="flex-row items-center gap-4">
+            {hasUnread ? (
+              <Pressable
+                onPress={() => void markAllRead()}
+                disabled={markingAll}
+                accessibilityRole="button"
+                accessibilityLabel="Tout marquer comme lu"
+                className="min-h-[44px] justify-center"
+              >
+                <Text className="text-sm font-semibold text-himba-saffron">
+                  Tout lire
+                </Text>
+              </Pressable>
+            ) : null}
+            {hasItems ? (
+              <Pressable
+                onPress={onConfirmClearAll}
+                disabled={clearing}
+                accessibilityRole="button"
+                accessibilityLabel="Tout effacer"
+                className="min-h-[44px] justify-center"
+              >
+                <Text className="text-sm font-semibold text-himba-alert">
+                  Tout effacer
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
         </View>
 
         {isLoading ? (
@@ -116,38 +159,96 @@ export default function ActusScreen() {
             renderItem={({ item }) => {
               const unread = isUnread(item);
               return (
-                <Pressable
-                  onPress={() => onPressItem(item)}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${item.title}. ${item.body}`}
-                  className={`min-h-[72px] rounded-2xl border px-4 py-3 ${
-                    unread
-                      ? 'border-himba-ochre bg-himba-earth'
-                      : 'border-transparent bg-himba-earth/70'
+                <View
+                  className={`min-h-[72px] flex-row items-stretch rounded-2xl ${
+                    unread ? 'bg-himba-earth' : 'bg-himba-earth/55'
                   }`}
                 >
-                  <View className="flex-row items-start gap-2">
-                    {unread ? (
-                      <View className="mt-1.5 h-2 w-2 rounded-full bg-himba-pulse" />
-                    ) : (
-                      <View className="mt-1.5 h-2 w-2" />
-                    )}
+                  <Pressable
+                    onPress={() => onPressItem(item)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: unread }}
+                    accessibilityLabel={`${unread ? 'Non lue. ' : ''}${item.title}. ${item.body}`}
+                    className="min-h-[72px] flex-1 flex-row items-start gap-3 px-3 py-3 pr-1"
+                  >
+                    <View className="w-3 items-center pt-2">
+                      {unread ? (
+                        <View
+                          className="h-2.5 w-2.5 rounded-full bg-himba-ember"
+                          accessibilityElementsHidden
+                          importantForAccessibility="no"
+                        />
+                      ) : null}
+                    </View>
                     <View className="flex-1 gap-1">
-                      <Text className="font-semibold text-himba-ink">
+                      <Text
+                        className={`text-himba-ink ${
+                          unread ? 'font-bold' : 'font-normal'
+                        }`}
+                      >
                         {item.title}
                       </Text>
-                      <Text className="text-himba-mist">{item.body}</Text>
+                      <Text
+                        className={`text-himba-mist ${
+                          unread ? 'font-semibold' : 'font-normal'
+                        }`}
+                      >
+                        {item.body}
+                      </Text>
                       <Text className="text-xs text-himba-mist">
                         {formatNotifDate(item.createdAt)}
                       </Text>
                     </View>
-                  </View>
-                </Pressable>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setMenuItem(item)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Options pour ${item.title}`}
+                    hitSlop={8}
+                    className="min-h-[44px] min-w-[44px] items-center justify-center px-3"
+                  >
+                    <Text className="text-xl leading-none text-himba-mist">
+                      ⋮
+                    </Text>
+                  </Pressable>
+                </View>
               );
             }}
           />
         )}
       </View>
+
+      <TrackActionsSheet
+        visible={menuItem !== null}
+        title={menuItem?.title}
+        subtitle={menuItem?.body}
+        onClose={() => setMenuItem(null)}
+        actions={
+          menuItem
+            ? [
+                ...(isUnread(menuItem)
+                  ? [
+                      {
+                        key: 'read',
+                        label: 'Marquer comme lu',
+                        onPress: () => {
+                          void markRead(menuItem.id);
+                        },
+                      },
+                    ]
+                  : []),
+                {
+                  key: 'delete',
+                  label: 'Supprimer',
+                  destructive: true,
+                  onPress: () => {
+                    void deleteOne(menuItem.id);
+                  },
+                },
+              ]
+            : []
+        }
+      />
     </SafeAreaView>
   );
 }

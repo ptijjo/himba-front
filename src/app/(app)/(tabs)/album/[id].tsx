@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { EntityRatingBlock } from '@/components/ratings/EntityRatingBlock';
 import { TrackRow } from '@/components/tracks/TrackRow';
 import { himbaColors } from '@/constants/theme';
 import { usePlayTrack } from '@/hooks/usePlayTrack';
@@ -153,6 +154,12 @@ export default function AlbumDetailScreen() {
               <Text className="text-sm text-himba-mist">
                 {tracks.length} titre{tracks.length > 1 ? 's' : ''}
               </Text>
+              <View className="w-full items-center">
+                <EntityRatingBlock
+                  summary={album.ratingSummary}
+                  target={{ albumId }}
+                />
+              </View>
               <Pressable
                 onPress={() => {
                   void onToggleFavorite();

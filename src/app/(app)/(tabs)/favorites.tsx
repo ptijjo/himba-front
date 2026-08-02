@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -9,6 +9,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AddToPlaylistModal } from '@/components/library/AddToPlaylistModal';
+import { ReportModal } from '@/components/reports/ReportModal';
+import { TrackActionsSheet } from '@/components/tracks/TrackActionsSheet';
 import { TrackRow } from '@/components/tracks/TrackRow';
 import { Button } from '@/components/ui/Button';
 import { himbaColors } from '@/constants/theme';
@@ -22,11 +25,16 @@ import {
 
 /**
  * Favoris — détail : titres + file de lecture (comme une playlist).
+ * Clic titre → lecteur + file ; menu ⋮ → retirer / ajouter à une playlist.
  */
 export default function FavoritesScreen() {
   const { playTrack } = usePlayTrack();
   const { data: favorites = [], isLoading } = useGetFavoritesQuery();
   const [removeFavorite] = useRemoveFavoriteMutation();
+
+  const [menuTrack, setMenuTrack] = useState<Track | null>(null);
+  const [playlistTrack, setPlaylistTrack] = useState<Track | null>(null);
+  const [reportTrack, setReportTrack] = useState<Track | null>(null);
 
   const tracks = useMemo((): Track[] => {
     return favorites
@@ -100,29 +108,62 @@ export default function FavoritesScreen() {
           <Text className="text-himba-mist">Aucun favori pour l’instant.</Text>
         ) : (
           <View className="gap-2">
-            {tracks.map((track) => {
-              const fav = favorites.find((f) => f.trackId === track.id);
-              return (
-                <View key={track.id} className="gap-1">
-                  <TrackRow track={track} onPress={onPlayOne} />
-                  {fav ? (
-                    <Pressable
-                      onPress={() => {
-                        void removeFavorite(fav.trackId);
-                      }}
-                      className="self-end px-2"
-                      accessibilityRole="button"
-                      accessibilityLabel="Retirer des favoris"
-                    >
-                      <Text className="text-xs text-himba-mist">Retirer</Text>
-                    </Pressable>
-                  ) : null}
-                </View>
-              );
-            })}
+            {tracks.map((track) => (
+              <TrackRow
+                key={track.id}
+                track={track}
+                onPress={onPlayOne}
+                onMenuPress={setMenuTrack}
+              />
+            ))}
           </View>
         )}
       </ScrollView>
+
+      <TrackActionsSheet
+        visible={menuTrack !== null}
+        title={menuTrack?.title}
+        subtitle={menuTrack?.artist?.displayName ?? menuTrack?.genre ?? undefined}
+        onClose={() => setMenuTrack(null)}
+        actions={
+          menuTrack
+            ? [
+                {
+                  key: 'add-playlist',
+                  label: 'Ajouter à une playlist',
+                  onPress: () => setPlaylistTrack(menuTrack),
+                },
+                {
+                  key: 'report',
+                  label: 'Signaler',
+                  onPress: () => setReportTrack(menuTrack),
+                },
+                {
+                  key: 'remove-fav',
+                  label: 'Retirer des favoris',
+                  destructive: true,
+                  onPress: () => {
+                    void removeFavorite(menuTrack.id);
+                  },
+                },
+              ]
+            : []
+        }
+      />
+
+      <AddToPlaylistModal
+        track={playlistTrack}
+        visible={playlistTrack !== null}
+        onClose={() => setPlaylistTrack(null)}
+      />
+
+      <ReportModal
+        visible={reportTrack !== null}
+        targetType="TRACK"
+        targetId={reportTrack?.id ?? ''}
+        targetLabel={reportTrack?.title}
+        onClose={() => setReportTrack(null)}
+      />
     </SafeAreaView>
   );
 }

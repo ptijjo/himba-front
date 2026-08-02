@@ -1,8 +1,6 @@
-/**
- * Schémas catalogue / recommandations — miroir réponses tracks API.
- * Prix API = euros (`price`) — plus de `priceCents`.
- */
 import { z } from 'zod';
+
+import { ratingSummarySchema } from '@/schemas/ratings';
 
 /** Decimal Prisma / number / string → number | null. */
 export const moneyEurosSchema = z.preprocess((val) => {
@@ -37,6 +35,8 @@ export const trackSchema = z.object({
   artist: trackArtistSchema.optional(),
   createdAt: z.union([z.string(), z.coerce.date()]).optional(),
   updatedAt: z.union([z.string(), z.coerce.date()]).optional(),
+  /** Présent sur GET /tracks/:id uniquement. */
+  ratingSummary: ratingSummarySchema.optional(),
 });
 
 export const trackListSchema = z.object({

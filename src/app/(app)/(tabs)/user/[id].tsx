@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ReportModal } from '@/components/reports/ReportModal';
+import { Button } from '@/components/ui/Button';
 import { himbaColors } from '@/constants/theme';
 import { openArtistProfile } from '@/lib/navigation/openProfile';
 import {
@@ -26,6 +28,7 @@ import {
 export default function UserPublicProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const userId = typeof id === 'string' ? id : '';
+  const [showReport, setShowReport] = useState(false);
 
   const {
     data: profile,
@@ -92,6 +95,13 @@ export default function UserPublicProfileScreen() {
           {profile.bio ? (
             <Text style={styles.bio}>{profile.bio}</Text>
           ) : null}
+          <View className="mt-3 w-full max-w-[220px] self-center">
+            <Button
+              label="Signaler"
+              variant="secondary"
+              onPress={() => setShowReport(true)}
+            />
+          </View>
         </View>
 
         <View className="gap-3">
@@ -137,6 +147,14 @@ export default function UserPublicProfileScreen() {
           )}
         </View>
       </ScrollView>
+
+      <ReportModal
+        visible={showReport}
+        targetType="USER"
+        targetId={userId}
+        targetLabel={`@${profile.username}`}
+        onClose={() => setShowReport(false)}
+      />
     </SafeAreaView>
   );
 }
