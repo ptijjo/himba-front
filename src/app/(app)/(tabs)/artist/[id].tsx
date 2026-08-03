@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ReportModal } from '@/components/reports/ReportModal';
-import { EntityRatingBlock } from '@/components/ratings/EntityRatingBlock';
+import { EntityRatingTrigger } from '@/components/ratings/EntityRatingTrigger';
 import { TrackActionsSheet } from '@/components/tracks/TrackActionsSheet';
 import { TrackRow } from '@/components/tracks/TrackRow';
 import { Button } from '@/components/ui/Button';
@@ -199,9 +199,11 @@ export default function ArtistPublicProfileScreen() {
               </View>
             </View>
             <View className="mt-3 w-full items-center px-2">
-              <EntityRatingBlock
+              <EntityRatingTrigger
                 summary={artist.ratingSummary}
                 target={{ artistId }}
+                sheetTitle={displayName}
+                align="center"
               />
             </View>
             {bio ? (

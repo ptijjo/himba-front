@@ -32,7 +32,7 @@ type HomeTabId = 'pour-toi' | 'suivis' | 'explorer';
 
 /**
  * Accueil — Pour toi / Suivis / Explorer (onglet principal).
- * Fond = cover du slide « À la une » actif.
+ * Fond = cover du slide « Musiques récentes » actif.
  *
  * Le catalogue est partagé entre appareils : on refetch au focus onglet +
  * pull-to-refresh, sinon le cache RTK (écran toujours monté) masque les nouveautés.
@@ -85,7 +85,7 @@ export default function HomeScreen() {
   });
 
   const catalog = tracksPage?.items ?? [];
-  // Hero / sélection : reco si dispo ; liste « Nouveautés » = catalogue frais.
+  // Proposition artiste : reco si dispo ; hero = catalogue récent (API createdAt desc).
   const selectionTracks =
     tab === 'pour-toi' && recommendations.length > 0
       ? recommendations
@@ -175,7 +175,7 @@ export default function HomeScreen() {
         {tab === 'pour-toi' ? (
           <>
             <HomeHeroCarousel
-              tracks={selectionTracks}
+              tracks={catalog}
               onActiveImageChange={setHeroBackdropUri}
               onPlayTrack={(t) => {
                 void playTrack(t);
@@ -190,7 +190,7 @@ export default function HomeScreen() {
             />
             <View className="gap-2">
               <Text className="text-lg font-bold text-himba-ink">
-                Nouveautés
+                Catalogue
               </Text>
               {catalog.map((track) => (
                 <TrackRow

@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AddToPlaylistModal } from '@/components/library/AddToPlaylistModal';
+import { RatingAverageBadge } from '@/components/ratings/RatingAverageBadge';
 import { himbaColors, homeMedia } from '@/constants/theme';
 import { getErrorMessage } from '@/lib/errors/apiError';
 import { openArtistProfile } from '@/lib/navigation/openProfile';
@@ -16,6 +17,7 @@ import {
   useRemoveFavoriteMutation,
   useUnfollowArtistMutation,
 } from '@/store/api/libraryApi';
+import { useGetTrackQuery } from '@/store/api/tracksApi';
 
 type SelectionSectionProps = {
   tracks: Track[];
@@ -35,6 +37,10 @@ export function SelectionSection({
   const artistId = featured?.artistId;
   const { data: artist } = useGetArtistQuery(artistId ?? '', {
     skip: !artistId,
+  });
+  /** Détail pour ratingSummary (absent des listes / reco). */
+  const { data: featuredDetail } = useGetTrackQuery(featured?.id ?? '', {
+    skip: !featured?.id,
   });
   const { data: follows = [] } = useGetFollowsQuery();
   const { data: favorites = [] } = useGetFavoritesQuery();
@@ -239,6 +245,12 @@ export function SelectionSection({
               onPress={onOpenPlaylist}
               disabled={!featured}
             />
+            <View style={styles.ratingSlot}>
+              <RatingAverageBadge
+                summary={featuredDetail?.ratingSummary}
+                showNewWhenEmpty={Boolean(featured)}
+              />
+            </View>
           </View>
 
           {actionOk ? (
@@ -382,8 +394,16 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
     marginTop: 2,
+  },
+  ratingSlot: {
+    flex: 1,
+    minHeight: 44,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    paddingRight: 2,
   },
   actionBtn: {
     width: 44,

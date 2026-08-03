@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { router, type Href } from 'expo-router';
 import {
   Pressable,
@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { HimbaLogo } from '@/components/brand/HimbaWordmark';
+import { AddToPlaylistModal } from '@/components/library/AddToPlaylistModal';
 import {
   NextIcon,
   PauseIcon,
@@ -20,16 +20,24 @@ import {
 } from '@/components/player/PlayerControlIcons';
 import { PlayerCoverSwipe } from '@/components/player/PlayerCoverSwipe';
 import { PlayerSeekBar } from '@/components/player/PlayerSeekBar';
-import { EntityRatingBlock } from '@/components/ratings/EntityRatingBlock';
+import { RateEntitySheet } from '@/components/ratings/RateEntitySheet';
 import { TrackRow } from '@/components/tracks/TrackRow';
 import { himbaColors, homeMedia } from '@/constants/theme';
 import { usePlayTrack } from '@/hooks/usePlayTrack';
+import { getErrorMessage } from '@/lib/errors/apiError';
+import { openArtistProfile } from '@/lib/navigation/openProfile';
 import {
   pickNextInQueue,
   pickPrevInQueue,
 } from '@/lib/player/queueNavigation';
+import { formatPublicAverageLabel } from '@/lib/ratings/formatPublicAverage';
 import { useAudioPlayerControls } from '@/providers/AudioPlayerProvider';
 import { useAppDispatch, useAppSelector } from '@/store';
+import {
+  useAddFavoriteMutation,
+  useGetFavoritesQuery,
+  useRemoveFavoriteMutation,
+} from '@/store/api/libraryApi';
 import { useGetTrackQuery } from '@/store/api/tracksApi';
 import {
   cycleRepeatMode,
@@ -38,8 +46,8 @@ import {
 } from '@/store/slices/playerSlice';
 
 /**
- * Lecteur plein (cover + contrôles + file).
- * Accès via mini-lecteur / lecture playlist — pas l’entrée de l’onglet Musique.
+ * Lecteur plein — agencement type Deezer :
+ * cover → titre/artiste + actions (♥ + ★) → seek → transport → file.
  */
 export default function LectureScreen() {
   const dispatch = useAppDispatch();
@@ -52,6 +60,14 @@ export default function LectureScreen() {
   const { data: trackDetail } = useGetTrackQuery(trackId, {
     skip: !trackId,
   });
+  const { data: favorites = [] } = useGetFavoritesQuery();
+  const [addFavorite, { isLoading: addingFav }] = useAddFavoriteMutation();
+  const [removeFavorite, { isLoading: removingFav }] =
+    useRemoveFavoriteMutation();
+
+  const [playlistOpen, setPlaylistOpen] = useState(false);
+  const [rateOpen, setRateOpen] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const queueTracks = queue;
   const cover =
@@ -59,6 +75,16 @@ export default function LectureScreen() {
     queueTracks[0]?.coverUrl ??
     homeMedia.selectionAbstract;
   const titleCount = queueTracks.length;
+
+  const isFavorite = useMemo(
+    () => Boolean(trackId && favorites.some((f) => f.trackId === trackId)),
+    [favorites, trackId],
+  );
+
+  const publicAvg = formatPublicAverageLabel(trackDetail?.ratingSummary);
+  const myValue = trackDetail?.ratingSummary?.myValue ?? null;
+  const rateChip =
+    publicAvg ?? (myValue != null ? `★ ${myValue}` : '★');
 
   const canSwipeCover = useMemo(() => {
     if (queueTracks.length <= 1 && repeatMode !== 'all' && !shuffle) {
@@ -110,40 +136,64 @@ export default function LectureScreen() {
     }
   };
 
+  const onToggleFavorite = async () => {
+    if (!trackId) {
+      return;
+    }
+    setActionError(null);
+    try {
+      if (isFavorite) {
+        await removeFavorite(trackId).unwrap();
+      } else {
+        await addFavorite(trackId).unwrap();
+      }
+    } catch (e) {
+      setActionError(getErrorMessage(e, 'Favori impossible'));
+    }
+  };
+
+  const artistName =
+    track?.artist?.displayName ?? track?.genre ?? null;
+
   return (
     <SafeAreaView className="flex-1 bg-himba-night" edges={['top']}>
+      <AddToPlaylistModal
+        track={track ?? null}
+        visible={playlistOpen && track != null}
+        onClose={() => setPlaylistOpen(false)}
+      />
+      {trackId ? (
+        <RateEntitySheet
+          visible={rateOpen}
+          onClose={() => setRateOpen(false)}
+          title={track?.title}
+          summary={trackDetail?.ratingSummary}
+          target={{ trackId }}
+        />
+      ) : null}
+
       <ScrollView
         className="flex-1"
-        contentContainerClassName="gap-5 px-5 pb-36 pt-2"
+        contentContainerClassName="gap-4 px-5 pb-36 pt-1"
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <View style={styles.brand}>
-            <HimbaLogo size={36} />
-            <View>
-              <Text style={styles.brandName}>HIMBA</Text>
-              <Text style={styles.brandTag}>la musique nous relie</Text>
-            </View>
-          </View>
+        {/* Barre slim type Deezer : fermer / file */}
+        <View style={styles.topBar}>
           <Pressable
             onPress={openBibliotheque}
             accessibilityRole="button"
-            accessibilityLabel="Retour à la bibliothèque"
-            hitSlop={8}
-            style={styles.libraryLink}
+            accessibilityLabel="Fermer le lecteur"
+            hitSlop={10}
+            style={styles.topHit}
           >
-            <Text style={styles.libraryLinkLabel}>← Bibliothèque</Text>
+            <Text style={styles.chevron}>∨</Text>
           </Pressable>
-        </View>
-
-        <View style={styles.titleRow}>
-          <View style={styles.titleBlock}>
-            <Text style={styles.eyebrow}>TA MUSIQUE</Text>
-            <Text style={styles.headline}>Lecture</Text>
-          </View>
-          <View style={styles.countBadge}>
-            <Text style={styles.countLabel}>
-              {titleCount} titre{titleCount === 1 ? '' : 's'}
+          <Text style={styles.topCenter} numberOfLines={1}>
+            En cours de lecture
+          </Text>
+          <View style={styles.topHit}>
+            <Text style={styles.queueCount}>
+              {titleCount > 0 ? String(titleCount) : ''}
             </Text>
           </View>
         </View>
@@ -156,24 +206,100 @@ export default function LectureScreen() {
           onSwipePrev={onPrev}
         />
 
-        <View style={styles.nowPlaying}>
-          <Text style={styles.nowTitle}>
-            {track?.title ?? 'Aucun morceau'}
-          </Text>
-          <Text style={styles.nowSubtitle}>
-            {track
-              ? (track.artist?.displayName ?? track.genre ?? 'Himba')
-              : 'Ouvre une playlist ou choisis un titre'}
-          </Text>
+        {/* Titre + cœur (rangée Deezer) */}
+        <View style={styles.metaRow}>
+          <View style={styles.metaText}>
+            <Text style={styles.nowTitle} numberOfLines={2}>
+              {track?.title ?? 'Aucun morceau'}
+            </Text>
+            {track && artistName ? (
+              <Pressable
+                onPress={() => {
+                  if (track.artistId) {
+                    openArtistProfile(track.artistId);
+                  }
+                }}
+                disabled={!track.artistId}
+                accessibilityRole="link"
+                accessibilityLabel={`Artiste ${artistName}`}
+              >
+                <Text style={styles.nowArtist} numberOfLines={1}>
+                  {artistName}
+                </Text>
+              </Pressable>
+            ) : (
+              <Text style={styles.nowSubtitle}>
+                Ouvre une playlist ou choisis un titre
+              </Text>
+            )}
+          </View>
           {trackId ? (
-            <View className="mt-3 items-center">
-              <EntityRatingBlock
-                summary={trackDetail?.ratingSummary}
-                target={{ trackId }}
-              />
-            </View>
+            <Pressable
+              onPress={() => {
+                void onToggleFavorite();
+              }}
+              disabled={addingFav || removingFav}
+              accessibilityRole="button"
+              accessibilityLabel={
+                isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'
+              }
+              style={styles.heartHit}
+            >
+              <Text
+                style={[
+                  styles.heartIcon,
+                  { color: isFavorite ? himbaColors.ember : himbaColors.mist },
+                ]}
+              >
+                {isFavorite ? '♥' : '♡'}
+              </Text>
+            </Pressable>
           ) : null}
         </View>
+
+        {/* Actions secondaires : playlist + note */}
+        {trackId ? (
+          <View style={styles.secondaryActions}>
+            <Pressable
+              onPress={() => setPlaylistOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Ajouter à une playlist"
+              style={styles.secondaryBtn}
+            >
+              <Text style={styles.secondaryIcon}>＋</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setRateOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel={
+                publicAvg
+                  ? `Note moyenne ${publicAvg}. Noter ou modifier`
+                  : myValue != null
+                    ? `Ta note ${myValue} sur 5. Modifier`
+                    : 'Noter ce titre'
+              }
+              style={styles.secondaryBtn}
+            >
+              <Text
+                style={[
+                  styles.rateChip,
+                  {
+                    color:
+                      publicAvg || myValue != null
+                        ? himbaColors.saffron
+                        : himbaColors.mist,
+                  },
+                ]}
+              >
+                {rateChip}
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
+
+        {actionError ? (
+          <Text style={styles.actionErr}>{actionError}</Text>
+        ) : null}
 
         <PlayerSeekBar />
 
@@ -313,89 +439,100 @@ function repeatAccessibilityLabel(mode: RepeatMode): string {
 }
 
 const styles = StyleSheet.create({
-  header: {
+  topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-  },
-  brand: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  brandName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: himbaColors.ink,
-    letterSpacing: 0.4,
-  },
-  brandTag: {
-    fontSize: 11,
-    color: himbaColors.mist,
-  },
-  libraryLink: {
-    minHeight: 44,
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-  },
-  libraryLinkLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: himbaColors.ember,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
     justifyContent: 'space-between',
-    gap: 12,
+    minHeight: 44,
   },
-  titleBlock: {
-    gap: 4,
+  topHit: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  eyebrow: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 2,
-    color: himbaColors.ember,
-  },
-  headline: {
-    fontSize: 34,
-    lineHeight: 40,
+  chevron: {
+    fontSize: 22,
+    fontWeight: '600',
     color: himbaColors.ink,
-    fontFamily: 'Literata_700Bold',
   },
-  countBadge: {
-    borderRadius: 999,
-    backgroundColor: himbaColors.earth,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  countLabel: {
-    fontSize: 12,
+  topCenter: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 13,
     fontWeight: '600',
     color: himbaColors.mist,
   },
-  nowPlaying: {
-    alignItems: 'center',
+  queueCount: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: himbaColors.mist,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  metaText: {
+    flex: 1,
     gap: 4,
+    minWidth: 0,
   },
   nowTitle: {
     fontSize: 22,
     fontWeight: '700',
     color: himbaColors.ink,
-    textAlign: 'center',
+  },
+  nowArtist: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: himbaColors.ember,
   },
   nowSubtitle: {
     fontSize: 13,
     color: himbaColors.mist,
-    textAlign: 'center',
+  },
+  heartHit: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heartIcon: {
+    fontSize: 26,
+  },
+  secondaryActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  secondaryBtn: {
+    minHeight: 44,
+    minWidth: 44,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: himbaColors.earth,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  secondaryIcon: {
+    fontSize: 20,
+    color: himbaColors.ink,
+  },
+  rateChip: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  actionErr: {
+    fontSize: 12,
+    color: himbaColors.alert,
   },
   controls: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 28,
+    marginTop: 4,
   },
   iconHit: {
     width: 40,
@@ -413,6 +550,7 @@ const styles = StyleSheet.create({
   },
   playlistHeader: {
     gap: 4,
+    marginTop: 8,
   },
   playlistTitle: {
     fontSize: 20,

@@ -60,7 +60,7 @@ function trackMetaLine(track: Track): {
 }
 
 /**
- * Carrousel « À la une » auto — MVP (titres API + slide éditorial).
+ * Carrousel musiques récentes — slides = titres API uniquement (pas de slide marketing).
  * Pagination capsule (pastilles + pill active), sans chiffres.
  */
 export function HomeHeroCarousel({
@@ -77,16 +77,7 @@ export function HomeHeroCarousel({
   onActiveImageChangeRef.current = onActiveImageChange;
 
   const slides = useMemo<Slide[]>(() => {
-    const editorial: Slide = {
-      key: 'editorial',
-      track: null,
-      imageUri: homeMedia.heroConcert,
-      title: 'Des sons\nqui voyagent.',
-      artistName: null,
-      meta: 'Découvre les voix indépendantes, soutiens les artistes et compose ta playlist.',
-    };
-
-    const fromApi = tracks.slice(0, MAX_SLIDES - 1).map((track) => {
+    return tracks.slice(0, MAX_SLIDES).map((track) => {
       const { artistName, meta } = trackMetaLine(track);
       return {
         key: track.id,
@@ -97,8 +88,6 @@ export function HomeHeroCarousel({
         meta,
       };
     });
-
-    return fromApi.length > 0 ? [editorial, ...fromApi] : [editorial];
   }, [tracks]);
 
   useEffect(() => {
@@ -106,8 +95,23 @@ export function HomeHeroCarousel({
     onActiveImageChangeRef.current?.(uri);
   }, [index, slides]);
 
+  // Si le catalogue change et que l’index dépasse → revenir au début.
+  useEffect(() => {
+    if (slides.length === 0) {
+      setIndex(0);
+      return;
+    }
+    if (index >= slides.length) {
+      setIndex(0);
+      scrollRef.current?.scrollTo({ x: 0, animated: false });
+    }
+  }, [index, slides.length]);
+
   const goTo = useCallback(
     (next: number, animated = true) => {
+      if (slides.length === 0) {
+        return;
+      }
       const clamped =
         ((next % slides.length) + slides.length) % slides.length;
       setIndex(clamped);
@@ -136,11 +140,22 @@ export function HomeHeroCarousel({
   const onScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const x = event.nativeEvent.contentOffset.x;
     const next = Math.round(x / Math.max(cardWidth, 1));
-    const clamped = Math.min(Math.max(next, 0), slides.length - 1);
+    const clamped = Math.min(Math.max(next, 0), Math.max(slides.length - 1, 0));
     if (clamped !== index) {
       setIndex(clamped);
     }
   };
+
+  if (slides.length === 0) {
+    return (
+      <View className="gap-2 overflow-hidden rounded-card bg-himba-earth px-5 py-8">
+        <Text style={styles.eyebrow}>MUSIQUES RÉCENTES</Text>
+        <Text className="text-base text-himba-mist">
+          Aucun titre pour le moment — reviens dès qu’un artiste publie.
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View className="gap-3">
@@ -163,7 +178,7 @@ export function HomeHeroCarousel({
           showsHorizontalScrollIndicator={false}
           onMomentumScrollEnd={onScrollEnd}
           accessibilityRole="adjustable"
-          accessibilityLabel="Carrousel à la une"
+          accessibilityLabel="Carrousel musiques récentes"
         >
           {slides.map((slide) => (
             <View
@@ -195,12 +210,9 @@ export function HomeHeroCarousel({
                 style={styles.overlay}
               >
                 <View style={styles.copy}>
-                  <Text style={styles.eyebrow}>À LA UNE · MUSIQUE</Text>
+                  <Text style={styles.eyebrow}>MUSIQUES RÉCENTES</Text>
                   <Text
-                    style={[
-                      styles.title,
-                      slide.track ? styles.titleTrack : styles.titleEditorial,
-                    ]}
+                    style={[styles.title, styles.titleTrack]}
                     numberOfLines={2}
                     adjustsFontSizeToFit
                     minimumFontScale={0.78}
@@ -220,15 +232,13 @@ export function HomeHeroCarousel({
                   onPress={() => {
                     if (slide.track) {
                       onPlayTrack?.(slide.track);
-                    } else if (tracks[0]) {
-                      onPlayTrack?.(tracks[0]);
                     }
                   }}
                   accessibilityRole="button"
                   accessibilityLabel={
                     slide.track
                       ? `Écouter ${slide.track.title}`
-                      : 'Lire la sélection'
+                      : 'Écouter'
                   }
                   style={styles.play}
                 >
@@ -240,7 +250,6 @@ export function HomeHeroCarousel({
         </ScrollView>
       </View>
 
-      {/* Pagination style capsule : pastilles + pill active (sans chiffres) */}
       <View className="items-center">
         <View
           style={styles.pager}
@@ -295,10 +304,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Literata_700Bold',
     letterSpacing: -0.5,
     marginBottom: 6,
-  },
-  titleEditorial: {
-    fontSize: 28,
-    lineHeight: 34,
   },
   titleTrack: {
     fontSize: 24,
