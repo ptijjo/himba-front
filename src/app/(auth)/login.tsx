@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Link } from 'expo-router';
-import { useState } from 'react';
+import { Link, useLocalSearchParams } from 'expo-router';
+import { useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
   KeyboardAvoidingView,
@@ -19,9 +19,21 @@ import { getErrorMessage } from '@/lib/errors/apiError';
 import { loginFormSchema, type LoginFormValues } from '@/schemas/auth';
 import { useLoginMutation } from '@/store/api/authApi';
 
+function firstParam(value: string | string[] | undefined): string {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (Array.isArray(value) && typeof value[0] === 'string') {
+    return value[0];
+  }
+  return '';
+}
+
 export default function LoginScreen() {
   const [login, { isLoading }] = useLoginMutation();
   const [formError, setFormError] = useState<string | null>(null);
+  const params = useLocalSearchParams<{ email?: string | string[] }>();
+  const prefillsEmail = useMemo(() => firstParam(params.email), [params.email]);
 
   const {
     control,
@@ -29,7 +41,7 @@ export default function LoginScreen() {
     formState: { errors },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginFormSchema),
-    defaultValues: { login: '', password: '' },
+    defaultValues: { login: prefillsEmail, password: '' },
   });
 
   const onSubmit = handleSubmit(async (values) => {
@@ -64,7 +76,9 @@ export default function LoginScreen() {
               Bienvenue
             </Text>
             <Text className="mb-8 text-center text-base text-himba-mist">
-              Connecte-toi pour découvrir les sons qui voyagent.
+              {prefillsEmail
+                ? 'Après validation de ton email, connecte-toi pour entrer dans Himba.'
+                : 'Connecte-toi pour découvrir les sons qui voyagent.'}
             </Text>
 
             <View className="gap-4 rounded-3xl border border-himba-canopy/60 bg-himba-night/70 p-4">

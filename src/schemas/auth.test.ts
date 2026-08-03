@@ -56,7 +56,7 @@ describe('auth schemas', () => {
     ).toBe(true);
   });
 
-  it('valide le formulaire register (lettre + chiffre)', () => {
+  it('valide le formulaire register (mot de passe fort)', () => {
     expect(
       registerFormSchema.safeParse({
         username: 'ada',
@@ -69,6 +69,13 @@ describe('auth schemas', () => {
         username: 'ada_1',
         email: 'ada@himba.app',
         password: 'secret12',
+      }).success,
+    ).toBe(false);
+    expect(
+      registerFormSchema.safeParse({
+        username: 'ada_1',
+        email: 'ada@himba.app',
+        password: 'Secret12!',
       }).success,
     ).toBe(true);
   });

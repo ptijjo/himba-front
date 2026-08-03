@@ -7,27 +7,39 @@ import {
   clearStoredPushToken,
   getStoredPushToken,
 } from '@/lib/push/pushTokenStorage';
-import { authUserSchema, type LoginFormValues, type RegisterFormValues } from '@/schemas/auth';
+import {
+  authUserSchema,
+  registerPendingResponseSchema,
+  type LoginFormValues,
+  type RegisterFormValues,
+  type RegisterPendingResponse,
+} from '@/schemas/auth';
 import { baseApi } from '@/store/api/baseApi';
 import { notificationsApi } from '@/store/api/notificationsApi';
 import { clearCredentials } from '@/store/slices/authSlice';
 
 export const authApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
-    register: build.mutation({
-      query: (body: RegisterFormValues) => ({
+    register: build.mutation<RegisterPendingResponse, RegisterFormValues>({
+      query: (body) => ({
         url: '/auth/register',
         method: 'POST',
         body,
       }),
-      async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
-        try {
-          const { data } = await queryFulfilled;
-          await applyAuthLoginResponse(data, dispatch);
-        } catch {
-          // Erreur gérée par le composant
+      transformResponse: (response: unknown) => {
+        const parsed = registerPendingResponseSchema.safeParse(response);
+        if (!parsed.success) {
+          throw new Error('Réponse d’inscription invalide');
         }
+        return parsed.data;
       },
+    }),
+    resendVerification: build.mutation<{ message: string }, { email: string }>({
+      query: (body) => ({
+        url: '/auth/resend-verification',
+        method: 'POST',
+        body,
+      }),
     }),
     login: build.mutation({
       query: (body: LoginFormValues) => ({
@@ -106,6 +118,7 @@ export const authApi = baseApi.injectEndpoints({
 
 export const {
   useRegisterMutation,
+  useResendVerificationMutation,
   useLoginMutation,
   useLogoutMutation,
   useGetMeQuery,

@@ -2,9 +2,17 @@ import { z } from 'zod';
 
 import { ratingSummarySchema } from '@/schemas/ratings';
 
+/** Corps API POST /artists/become */
 export const becomeArtistSchema = z.object({
   displayName: z.string().min(2, 'Au moins 2 caractères').max(80),
   bio: z.string().max(1000).optional(),
+});
+
+/** Formulaire mobile — acceptation CGU obligatoire après scroll. */
+export const becomeArtistFormSchema = becomeArtistSchema.extend({
+  acceptArtistTerms: z.boolean().refine((v) => v === true, {
+    message: 'Tu dois accepter les conditions artiste',
+  }),
 });
 
 export const artistSchema = z.object({
@@ -26,4 +34,5 @@ export const artistSchema = z.object({
 });
 
 export type BecomeArtistValues = z.infer<typeof becomeArtistSchema>;
+export type BecomeArtistFormValues = z.infer<typeof becomeArtistFormSchema>;
 export type Artist = z.infer<typeof artistSchema>;

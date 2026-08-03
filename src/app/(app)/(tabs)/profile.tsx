@@ -4,13 +4,14 @@ import { Controller, useForm } from 'react-hook-form';
 import { ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ArtistTermsGate } from '@/components/artists/ArtistTermsGate';
 import { ProfileAvatar } from '@/components/profile/ProfileAvatar';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { getErrorMessage } from '@/lib/errors/apiError';
 import {
-  becomeArtistSchema,
-  type BecomeArtistValues,
+  becomeArtistFormSchema,
+  type BecomeArtistFormValues,
 } from '@/schemas/artists';
 import { useAppDispatch, useAppSelector } from '@/store';
 import {
@@ -43,6 +44,7 @@ export default function ProfileScreen() {
       <ScrollView
         className="flex-1"
         contentContainerClassName="gap-4 px-5 pb-6 pt-4"
+        keyboardShouldPersistTaps="handled"
       >
         <Text
           className="text-3xl text-himba-ink"
@@ -91,18 +93,29 @@ function BecomeArtistForm() {
   const {
     control,
     handleSubmit,
+    watch,
+    setValue,
     formState: { errors },
-  } = useForm<BecomeArtistValues>({
-    resolver: zodResolver(becomeArtistSchema),
-    defaultValues: { displayName: '', bio: '' },
+  } = useForm<BecomeArtistFormValues>({
+    resolver: zodResolver(becomeArtistFormSchema),
+    defaultValues: {
+      displayName: '',
+      bio: '',
+      acceptArtistTerms: false,
+    },
   });
+
+  const accepted = watch('acceptArtistTerms');
 
   const onSubmit = handleSubmit(async (values) => {
     setError(null);
     setOk(null);
     try {
-      // 1. POST /artists/become  2. Recharger /users/me
-      await becomeArtist(values).unwrap();
+      // 1. POST /artists/become (sans le flag UI)  2. Recharger /users/me
+      await becomeArtist({
+        displayName: values.displayName,
+        bio: values.bio?.trim() ? values.bio : undefined,
+      }).unwrap();
       const me = await fetchMe(undefined).unwrap();
       dispatch(setCredentials({ user: me }));
       setOk('Profil artiste créé — tu peux publier depuis le Studio.');
@@ -118,7 +131,7 @@ function BecomeArtistForm() {
       </Text>
       <Text className="text-sm text-himba-mist">
         Gratuit — indispensable pour publier des titres et des albums (même en
-        ADMIN).
+        ADMIN). L’encaissement Stripe / KYC viendra plus tard.
       </Text>
       <Controller
         control={control}
@@ -146,11 +159,24 @@ function BecomeArtistForm() {
           />
         )}
       />
+
+      <ArtistTermsGate
+        accepted={accepted}
+        onAcceptedChange={(v) => {
+          setValue('acceptArtistTerms', v, {
+            shouldValidate: true,
+            shouldDirty: true,
+          });
+        }}
+        error={errors.acceptArtistTerms?.message}
+      />
+
       {error ? <Text className="text-sm text-himba-alert">{error}</Text> : null}
       {ok ? <Text className="text-sm text-himba-ember">{ok}</Text> : null}
       <Button
         label="Créer mon profil artiste"
         loading={isLoading}
+        disabled={!accepted}
         onPress={onSubmit}
       />
     </View>

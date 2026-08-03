@@ -48,12 +48,23 @@ export const registerFormSchema = z.object({
     .string()
     .min(8, 'Au moins 8 caractères')
     .max(72)
-    .regex(/^(?=.*[A-Za-z])(?=.*\d).+$/, 'Au moins une lettre et un chiffre'),
+    .regex(/[a-z]/, 'Au moins une minuscule')
+    .regex(/[A-Z]/, 'Au moins une majuscule')
+    .regex(/[0-9]/, 'Au moins un chiffre')
+    .regex(/[^A-Za-z0-9]/, 'Au moins un symbole'),
+});
+
+export const registerPendingResponseSchema = z.object({
+  message: z.string().min(1),
+  email: z.string().email(),
 });
 
 export type AuthUser = z.infer<typeof authUserSchema>;
 export type AuthTokens = z.infer<typeof authTokensSchema>;
 export type AuthLoginResponse = z.infer<typeof authLoginResponseSchema>;
+export type RegisterPendingResponse = z.infer<
+  typeof registerPendingResponseSchema
+>;
 export type LoginFormValues = z.infer<typeof loginFormSchema>;
 export type RegisterFormValues = z.infer<typeof registerFormSchema>;
 export type UserRole = z.infer<typeof userRoleSchema>;
