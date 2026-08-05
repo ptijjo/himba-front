@@ -14,6 +14,15 @@ describe('schemas/reports', () => {
     expect(parsed.success).toBe(true);
   });
 
+  it('accepte ALBUM', () => {
+    const parsed = createReportSchema.safeParse({
+      targetType: 'ALBUM',
+      targetId: 'alb1',
+      reason: 'COPYRIGHT',
+    });
+    expect(parsed.success).toBe(true);
+  });
+
   it('refuse details trop longs', () => {
     const parsed = createReportSchema.safeParse({
       targetType: 'USER',

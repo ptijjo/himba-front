@@ -5,22 +5,47 @@ import { Controller, useForm } from 'react-hook-form';
 import {
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   Text,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ArtistTermsGate } from '@/components/artists/ArtistTermsGate';
 import { HimbaWordmark } from '@/components/brand/HimbaWordmark';
 import { AtmosphereBackdrop } from '@/components/media/AtmosphereBackdrop';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { himbaColors } from '@/constants/theme';
 import { getErrorMessage } from '@/lib/errors/apiError';
 import { registerFormSchema, type RegisterFormValues } from '@/schemas/auth';
 import {
   useRegisterMutation,
   useResendVerificationMutation,
 } from '@/store/api/authApi';
+
+const ACCOUNT_TYPES: Array<{
+  value: RegisterFormValues['accountType'];
+  label: string;
+  hint: string;
+}> = [
+  {
+    value: 'listener',
+    label: 'Auditeur',
+    hint: 'Écoute, playlists, favoris',
+  },
+  {
+    value: 'artist',
+    label: 'Artiste',
+    hint: 'Publie des titres — CGU requises',
+  },
+  {
+    value: 'other',
+    label: 'Autre',
+    hint: 'Je découvre / usage libre',
+  },
+];
 
 export default function RegisterScreen() {
   const [register, { isLoading }] = useRegisterMutation();
@@ -33,11 +58,23 @@ export default function RegisterScreen() {
     control,
     handleSubmit,
     getValues,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerFormSchema),
-    defaultValues: { username: '', email: '', password: '' },
+    defaultValues: {
+      username: '',
+      email: '',
+      password: '',
+      accountType: 'listener',
+      acceptArtistTerms: false,
+    },
   });
+
+  const accountType = watch('accountType');
+  const acceptedTerms = watch('acceptArtistTerms');
+  const isArtist = accountType === 'artist';
 
   const onSubmit = handleSubmit(async (values) => {
     setFormError(null);
@@ -74,6 +111,8 @@ export default function RegisterScreen() {
     });
   };
 
+  const canSubmit = !isArtist || acceptedTerms === true;
+
   return (
     <View className="flex-1 bg-himba-night">
       <AtmosphereBackdrop variant="auth" />
@@ -97,7 +136,7 @@ export default function RegisterScreen() {
               Créer un compte
             </Text>
             <Text className="mb-8 text-center text-base text-himba-mist">
-              Rejoins Himba gratuitement — auditeur ou artiste.
+              Choisis ton profil — le pseudo servira aussi de nom d’artiste.
             </Text>
 
             {pendingEmail ? (
@@ -109,8 +148,7 @@ export default function RegisterScreen() {
                   Un lien a été envoyé à{' '}
                   <Text className="font-semibold text-himba-saffron">
                     {pendingEmail}
-                  </Text>
-                  {' '}
+                  </Text>{' '}
                   (valable 48 h).
                 </Text>
 
@@ -155,12 +193,71 @@ export default function RegisterScreen() {
               </View>
             ) : (
               <View className="gap-4 rounded-3xl border border-himba-canopy/60 bg-himba-night/70 p-4">
+                <View className="gap-2">
+                  <Text className="text-sm font-medium text-himba-mist">
+                    Je suis…
+                  </Text>
+                  <View className="flex-row flex-wrap gap-2">
+                    {ACCOUNT_TYPES.map((opt) => {
+                      const selected = accountType === opt.value;
+                      return (
+                        <Pressable
+                          key={opt.value}
+                          onPress={() => {
+                            setValue('accountType', opt.value, {
+                              shouldValidate: true,
+                              shouldDirty: true,
+                            });
+                            if (opt.value !== 'artist') {
+                              setValue('acceptArtistTerms', false, {
+                                shouldValidate: true,
+                              });
+                            }
+                          }}
+                          accessibilityRole="radio"
+                          accessibilityState={{ selected }}
+                          accessibilityLabel={opt.label}
+                          className="min-h-[52px] min-w-[30%] flex-1 rounded-2xl border px-3 py-2"
+                          style={{
+                            borderColor: selected
+                              ? himbaColors.ember
+                              : himbaColors.canopy,
+                            backgroundColor: selected
+                              ? himbaColors.earth
+                              : himbaColors.night,
+                          }}
+                        >
+                          <Text
+                            className={`text-center text-sm font-bold ${
+                              selected ? 'text-himba-ember' : 'text-himba-ink'
+                            }`}
+                          >
+                            {opt.label}
+                          </Text>
+                          <Text className="mt-0.5 text-center text-[11px] text-himba-mist">
+                            {opt.hint}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                  {errors.accountType?.message ? (
+                    <Text className="text-sm text-himba-alert">
+                      {errors.accountType.message}
+                    </Text>
+                  ) : null}
+                </View>
+
                 <Controller
                   control={control}
                   name="username"
                   render={({ field: { onChange, onBlur, value } }) => (
                     <Input
-                      label="Pseudo"
+                      label={
+                        isArtist
+                          ? 'Pseudo (= nom d’artiste)'
+                          : 'Pseudo'
+                      }
                       autoCapitalize="none"
                       autoCorrect={false}
                       value={value}
@@ -170,6 +267,13 @@ export default function RegisterScreen() {
                     />
                   )}
                 />
+                {isArtist ? (
+                  <Text className="text-xs text-himba-mist">
+                    Ce pseudo sera aussi ton nom d’artiste public — plus simple
+                    pour te retrouver.
+                  </Text>
+                ) : null}
+
                 <Controller
                   control={control}
                   name="email"
@@ -206,6 +310,20 @@ export default function RegisterScreen() {
                   et symbole.
                 </Text>
 
+                {isArtist ? (
+                  <ArtistTermsGate
+                    key="register-artist-terms"
+                    accepted={acceptedTerms}
+                    onAcceptedChange={(v) => {
+                      setValue('acceptArtistTerms', v, {
+                        shouldValidate: true,
+                        shouldDirty: true,
+                      });
+                    }}
+                    error={errors.acceptArtistTerms?.message}
+                  />
+                ) : null}
+
                 {formError ? (
                   <Text className="text-center text-sm text-himba-alert">
                     {formError}
@@ -215,6 +333,7 @@ export default function RegisterScreen() {
                 <Button
                   label="S'inscrire"
                   loading={isLoading}
+                  disabled={!canSubmit}
                   onPress={onSubmit}
                 />
               </View>

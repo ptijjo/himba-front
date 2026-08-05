@@ -64,6 +64,7 @@ describe('auth schemas', () => {
         username: 'ada',
         email: 'ada@himba.app',
         password: 'password',
+        accountType: 'listener',
       }).success,
     ).toBe(false);
     expect(
@@ -71,6 +72,7 @@ describe('auth schemas', () => {
         username: 'ada_1',
         email: 'ada@himba.app',
         password: 'secret12',
+        accountType: 'listener',
       }).success,
     ).toBe(false);
     expect(
@@ -78,6 +80,28 @@ describe('auth schemas', () => {
         username: 'ada_1',
         email: 'ada@himba.app',
         password: 'Secret12!',
+        accountType: 'listener',
+      }).success,
+    ).toBe(true);
+  });
+
+  it('exige les CGU artiste si accountType = artist', () => {
+    expect(
+      registerFormSchema.safeParse({
+        username: 'ada_1',
+        email: 'ada@himba.app',
+        password: 'Secret12!',
+        accountType: 'artist',
+        acceptArtistTerms: false,
+      }).success,
+    ).toBe(false);
+    expect(
+      registerFormSchema.safeParse({
+        username: 'ada_1',
+        email: 'ada@himba.app',
+        password: 'Secret12!',
+        accountType: 'artist',
+        acceptArtistTerms: true,
       }).success,
     ).toBe(true);
   });

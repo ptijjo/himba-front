@@ -5,6 +5,7 @@ export const notificationTypeSchema = z.enum([
   'ALBUM_RELEASE',
   'NEW_FOLLOWER',
   'REPORT_UPDATE',
+  'REPORT_SANCTION',
 ]);
 
 export const reportStatusSchema = z.enum([
@@ -14,7 +15,12 @@ export const reportStatusSchema = z.enum([
   'DISMISSED',
 ]);
 
-export const reportTargetTypeSchema = z.enum(['TRACK', 'ARTIST', 'USER']);
+export const reportTargetTypeSchema = z.enum([
+  'TRACK',
+  'ALBUM',
+  'ARTIST',
+  'USER',
+]);
 
 export const reportReasonSchema = z.enum([
   'INAPPROPRIATE_CONTENT',
@@ -36,6 +42,10 @@ export const notificationDataSchema = z.object({
   targetType: reportTargetTypeSchema.optional(),
   targetId: z.string().optional(),
   reason: reportReasonSchema.optional(),
+  sanction: z
+    .enum(['WARNING', 'CONTENT_REMOVED', 'RESTRICTED', 'BANNED'])
+    .optional(),
+  audience: z.enum(['reporter', 'target']).optional(),
 });
 
 export const notificationSchema = z.object({

@@ -1,6 +1,11 @@
 import { z } from 'zod';
 
-export const reportTargetTypeSchema = z.enum(['TRACK', 'ARTIST', 'USER']);
+export const reportTargetTypeSchema = z.enum([
+  'TRACK',
+  'ALBUM',
+  'ARTIST',
+  'USER',
+]);
 export const reportReasonSchema = z.enum([
   'INAPPROPRIATE_CONTENT',
   'FRAUD_SCAM',

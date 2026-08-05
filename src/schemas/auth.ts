@@ -46,14 +46,36 @@ const strongPasswordSchema = z
   .regex(/[0-9]/, 'Au moins un chiffre')
   .regex(/[^A-Za-z0-9]/, 'Au moins un symbole');
 
-export const registerFormSchema = z.object({
-  username: z
-    .string()
-    .min(3, 'Au moins 3 caractères')
-    .max(30)
-    .regex(/^[a-zA-Z0-9_]+$/, 'Lettres, chiffres et underscore uniquement'),
-  email: z.string().email('Email invalide'),
-  password: strongPasswordSchema,
+export const registerFormSchema = z
+  .object({
+    username: z
+      .string()
+      .min(3, 'Au moins 3 caractères')
+      .max(30)
+      .regex(/^[a-zA-Z0-9_]+$/, 'Lettres, chiffres et underscore uniquement'),
+    email: z.string().email('Email invalide'),
+    password: strongPasswordSchema,
+    /** UI : auditeur / artiste / autre → API LISTENER | ARTIST. */
+    accountType: z.enum(['listener', 'artist', 'other']),
+    acceptArtistTerms: z.boolean().default(false),
+  })
+  .superRefine((values, ctx) => {
+    if (values.accountType === 'artist' && values.acceptArtistTerms !== true) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Tu dois accepter les conditions artiste',
+        path: ['acceptArtistTerms'],
+      });
+    }
+  });
+
+/** Corps POST /auth/register (sans le champ UI accountType). */
+export const registerApiBodySchema = z.object({
+  username: z.string().min(3).max(30),
+  email: z.string().email(),
+  password: z.string().min(8).max(72),
+  role: z.enum(['LISTENER', 'ARTIST']),
+  acceptArtistTerms: z.boolean().optional(),
 });
 
 export const registerPendingResponseSchema = z.object({
@@ -106,3 +128,21 @@ export type LoginFormValues = z.infer<typeof loginFormSchema>;
 export type RegisterFormValues = z.infer<typeof registerFormSchema>;
 export type UserRole = z.infer<typeof userRoleSchema>;
 export type UserStatus = z.infer<typeof userStatusSchema>;
+
+/** Mappe le formulaire UI vers le corps POST /auth/register. */
+export function toRegisterApiBody(values: RegisterFormValues): {
+  username: string;
+  email: string;
+  password: string;
+  role: 'LISTENER' | 'ARTIST';
+  acceptArtistTerms?: boolean;
+} {
+  const role = values.accountType === 'artist' ? 'ARTIST' : 'LISTENER';
+  return {
+    username: values.username.trim(),
+    email: values.email.trim(),
+    password: values.password,
+    role,
+    ...(role === 'ARTIST' ? { acceptArtistTerms: true } : {}),
+  };
+}

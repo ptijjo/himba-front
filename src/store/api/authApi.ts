@@ -11,6 +11,7 @@ import {
   authMessageResponseSchema,
   authUserSchema,
   registerPendingResponseSchema,
+  toRegisterApiBody,
   type ForgotPasswordFormValues,
   type LoginFormValues,
   type RegisterFormValues,
@@ -23,10 +24,10 @@ import { clearCredentials } from '@/store/slices/authSlice';
 export const authApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
     register: build.mutation<RegisterPendingResponse, RegisterFormValues>({
-      query: (body) => ({
+      query: (values) => ({
         url: '/auth/register',
         method: 'POST',
-        body,
+        body: toRegisterApiBody(values),
       }),
       transformResponse: (response: unknown) => {
         const parsed = registerPendingResponseSchema.safeParse(response);

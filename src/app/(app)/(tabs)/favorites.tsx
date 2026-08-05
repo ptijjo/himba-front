@@ -138,7 +138,7 @@ export default function FavoritesScreen() {
                 },
                 {
                   key: 'report',
-                  label: 'Signaler',
+                  label: 'Signaler ce titre',
                   onPress: () => setReportTrack(menuTrack),
                 },
                 {

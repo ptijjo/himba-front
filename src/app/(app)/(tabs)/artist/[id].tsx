@@ -222,7 +222,7 @@ export default function ArtistPublicProfileScreen() {
                 }}
               />
               <Button
-                label="Signaler"
+                label="Signaler l’artiste"
                 variant="secondary"
                 onPress={() => setShowReportArtist(true)}
               />
@@ -330,7 +330,7 @@ export default function ArtistPublicProfileScreen() {
             ? [
                 {
                   key: 'report',
-                  label: 'Signaler',
+                  label: 'Signaler ce titre',
                   onPress: () => setReportTrack(menuTrack),
                 },
               ]

@@ -11,6 +11,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EntityRatingTrigger } from '@/components/ratings/EntityRatingTrigger';
+import { ReportModal } from '@/components/reports/ReportModal';
+import { TrackActionsSheet } from '@/components/tracks/TrackActionsSheet';
 import { TrackRow } from '@/components/tracks/TrackRow';
 import { Button } from '@/components/ui/Button';
 import { himbaColors } from '@/constants/theme';
@@ -28,7 +30,7 @@ import {
 } from '@/store/api/libraryApi';
 
 /**
- * Détail album public — lecture de l’album + favori (cœur).
+ * Détail album public — lecture, favori, signalement album / titres.
  */
 export default function AlbumDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -46,6 +48,9 @@ export default function AlbumDetailScreen() {
   const [removeFavorite, { isLoading: removing }] =
     useRemoveAlbumFavoriteMutation();
   const [actionError, setActionError] = useState<string | null>(null);
+  const [showReportAlbum, setShowReportAlbum] = useState(false);
+  const [menuTrack, setMenuTrack] = useState<Track | null>(null);
+  const [reportTrack, setReportTrack] = useState<Track | null>(null);
 
   const isFavorite = useMemo(
     () => Boolean(albumId && albumFavorites.some((f) => f.albumId === albumId)),
@@ -221,6 +226,11 @@ export default function AlbumDetailScreen() {
                   </Text>
                 </Pressable>
               </View>
+              <Button
+                label="Signaler l’album"
+                variant="secondary"
+                onPress={() => setShowReportAlbum(true)}
+              />
               {actionError ? (
                 <Text className="text-sm text-himba-alert">{actionError}</Text>
               ) : null}
@@ -232,13 +242,58 @@ export default function AlbumDetailScreen() {
                 <Text className="text-himba-mist">Aucun titre.</Text>
               ) : (
                 tracks.map((track) => (
-                  <TrackRow key={track.id} track={track} onPress={onPlayOne} />
+                  <TrackRow
+                    key={track.id}
+                    track={track}
+                    onPress={onPlayOne}
+                    onMenuPress={setMenuTrack}
+                  />
                 ))
               )}
             </View>
           </>
         ) : null}
       </ScrollView>
+
+      <TrackActionsSheet
+        visible={menuTrack !== null}
+        title={menuTrack?.title}
+        subtitle={menuTrack?.artist?.displayName}
+        onClose={() => setMenuTrack(null)}
+        actions={
+          menuTrack
+            ? [
+                {
+                  key: 'report',
+                  label: 'Signaler ce titre',
+                  onPress: () => setReportTrack(menuTrack),
+                },
+              ]
+            : []
+        }
+      />
+
+      <ReportModal
+        visible={showReportAlbum}
+        targetType="ALBUM"
+        targetId={albumId}
+        targetLabel={album?.title}
+        onClose={() => setShowReportAlbum(false)}
+        onSubmitted={() => {
+          showToast({ message: 'Album signalé — merci' });
+        }}
+      />
+
+      <ReportModal
+        visible={reportTrack !== null}
+        targetType="TRACK"
+        targetId={reportTrack?.id ?? ''}
+        targetLabel={reportTrack?.title}
+        onClose={() => setReportTrack(null)}
+        onSubmitted={() => {
+          showToast({ message: 'Titre signalé — merci' });
+        }}
+      />
     </SafeAreaView>
   );
 }

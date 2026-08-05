@@ -66,7 +66,7 @@ export default function ActusScreen() {
         void markRead(item.id);
       }
       // Réponse signalement : lecture seule dans Actus (pas de navigation)
-      if (item.type === 'REPORT_UPDATE') {
+      if (item.type === 'REPORT_UPDATE' || item.type === 'REPORT_SANCTION') {
         return;
       }
       if (item.type === 'NEW_FOLLOWER' && item.data.followerId) {
