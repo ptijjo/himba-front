@@ -15,12 +15,18 @@ function navigateFromNotificationData(raw: unknown): void {
   if (!parsed.success) {
     return;
   }
+  // Réponse signalement : pas de deep-link (reste dans Actus)
+  if (parsed.data.reportId) {
+    return;
+  }
   // Nouveau follower → profil de celui qui suit ; sinon profil artiste (sortie)
   if (parsed.data.followerId) {
     openUserProfile(parsed.data.followerId);
     return;
   }
-  openArtistProfile(parsed.data.artistId);
+  if (parsed.data.artistId) {
+    openArtistProfile(parsed.data.artistId);
+  }
 }
 
 function handleResponse(

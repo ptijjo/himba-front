@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AlbumRow } from '@/components/albums/AlbumRow';
 import { ReportModal } from '@/components/reports/ReportModal';
 import { EntityRatingTrigger } from '@/components/ratings/EntityRatingTrigger';
 import { TrackActionsSheet } from '@/components/tracks/TrackActionsSheet';
@@ -233,34 +234,19 @@ export default function ArtistPublicProfileScreen() {
         </View>
 
         <Section title="Albums" loading={loadingAlbums} empty={albums.length === 0}>
-          {albums.map((album) => (
-            <Pressable
-              key={album.id}
-              onPress={() => openAlbum(album.id)}
-              accessibilityRole="button"
-              accessibilityLabel={`Album ${album.title}`}
-              style={styles.albumRow}
-            >
-              <View style={styles.albumCover}>
-                {album.coverUrl ? (
-                  <Image
-                    source={{ uri: album.coverUrl }}
-                    style={styles.albumImage}
-                    contentFit="cover"
-                  />
-                ) : null}
-              </View>
-              <View className="flex-1">
-                <Text className="font-semibold text-himba-ink" numberOfLines={1}>
-                  {album.title}
-                </Text>
-                <Text className="text-sm text-himba-mist">
-                  {album._count?.tracks ?? 0} titre
-                  {(album._count?.tracks ?? 0) > 1 ? 's' : ''}
-                </Text>
-              </View>
-            </Pressable>
-          ))}
+          {albums.map((album) => {
+            const trackCount = album._count?.tracks ?? 0;
+            return (
+              <AlbumRow
+                key={album.id}
+                albumId={album.id}
+                title={album.title}
+                coverUrl={album.coverUrl}
+                subtitle={`${trackCount} titre${trackCount > 1 ? 's' : ''}`}
+                onPress={() => openAlbum(album.id)}
+              />
+            );
+          })}
         </Section>
 
         <Section
@@ -476,25 +462,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: himbaColors.mist,
     textAlign: 'center',
-  },
-  albumRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    borderRadius: 16,
-    backgroundColor: himbaColors.earth,
-    padding: 12,
-  },
-  albumCover: {
-    width: 56,
-    height: 56,
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: himbaColors.canopy,
-  },
-  albumImage: {
-    width: 56,
-    height: 56,
   },
   plainRow: {
     borderRadius: 16,

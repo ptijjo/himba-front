@@ -47,6 +47,44 @@ export const artistsApi = baseApi.injectEndpoints({
         return parsed.data;
       },
     }),
+    /**
+     * PATCH /artists/:id — multipart (displayName + acceptArtistTerms si rename).
+     */
+    updateArtist: build.mutation<
+      Artist,
+      {
+        artistId: string;
+        displayName?: string;
+        bio?: string;
+        acceptArtistTerms?: boolean;
+      }
+    >({
+      query: ({ artistId, displayName, bio, acceptArtistTerms }) => {
+        const formData = new FormData();
+        if (displayName !== undefined) {
+          formData.append('displayName', displayName);
+        }
+        if (bio !== undefined) {
+          formData.append('bio', bio);
+        }
+        if (acceptArtistTerms === true) {
+          formData.append('acceptArtistTerms', 'true');
+        }
+        return {
+          url: `/artists/${artistId}`,
+          method: 'PATCH',
+          body: formData,
+        };
+      },
+      invalidatesTags: ['MyArtist', 'Artists'],
+      transformResponse: (response: unknown) => {
+        const parsed = artistSchema.safeParse(response);
+        if (!parsed.success) {
+          throw new Error('Profil artiste invalide');
+        }
+        return parsed.data;
+      },
+    }),
   }),
 });
 
@@ -54,4 +92,5 @@ export const {
   useBecomeArtistMutation,
   useGetMyArtistQuery,
   useGetArtistQuery,
+  useUpdateArtistMutation,
 } = artistsApi;

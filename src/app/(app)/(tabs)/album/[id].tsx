@@ -12,11 +12,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EntityRatingTrigger } from '@/components/ratings/EntityRatingTrigger';
 import { TrackRow } from '@/components/tracks/TrackRow';
+import { Button } from '@/components/ui/Button';
 import { himbaColors } from '@/constants/theme';
 import { usePlayTrack } from '@/hooks/usePlayTrack';
 import { getErrorMessage } from '@/lib/errors/apiError';
 import { openLecturePlayer } from '@/lib/navigation/openLecturePlayer';
 import { openArtistProfile } from '@/lib/navigation/openProfile';
+import { useToast } from '@/providers/ToastProvider';
 import type { Track } from '@/schemas/tracks';
 import { useGetAlbumQuery } from '@/store/api/albumsApi';
 import {
@@ -26,12 +28,13 @@ import {
 } from '@/store/api/libraryApi';
 
 /**
- * Détail album public — titres + favori album (cœur).
+ * Détail album public — lecture de l’album + favori (cœur).
  */
 export default function AlbumDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const albumId = typeof id === 'string' ? id : '';
   const { playTrack } = usePlayTrack();
+  const { showToast } = useToast();
 
   const {
     data: album,
@@ -77,12 +80,32 @@ export default function AlbumDetailScreen() {
     try {
       if (isFavorite) {
         await removeFavorite(albumId).unwrap();
+        showToast({ message: 'Album retiré de ta bibliothèque', kind: 'info' });
       } else {
         await addFavorite(albumId).unwrap();
+        showToast({ message: 'Album ajouté à ta bibliothèque' });
       }
     } catch (e) {
-      setActionError(getErrorMessage(e, 'Action impossible'));
+      const msg = getErrorMessage(e, 'Action impossible');
+      setActionError(msg);
+      showToast({ message: msg, kind: 'error' });
     }
+  };
+
+  // Lance l’album depuis le 1er titre, file = tous les titres de l’album
+  const onPlayAll = () => {
+    const first = tracks[0];
+    if (!first) {
+      showToast({ message: 'Aucun titre dans cet album', kind: 'info' });
+      return;
+    }
+    void playTrack(first, { queue: tracks }).then(() => {
+      showToast({
+        message: `Lecture · ${album?.title ?? 'album'}`,
+        kind: 'info',
+      });
+      openLecturePlayer();
+    });
   };
 
   const onPlayOne = (track: Track) => {
@@ -162,31 +185,42 @@ export default function AlbumDetailScreen() {
                   align="center"
                 />
               </View>
-              <Pressable
-                onPress={() => {
-                  void onToggleFavorite();
-                }}
-                disabled={adding || removing}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  isFavorite ? 'Retirer des albums aimés' : 'Aimer cet album'
-                }
-                className="min-h-[44px] min-w-[44px] items-center justify-center rounded-full px-4"
-                style={{
-                  backgroundColor: isFavorite
-                    ? himbaColors.ember
-                    : himbaColors.earth,
-                }}
-              >
-                <Text
-                  className="text-lg"
+              <View className="w-full flex-row items-center gap-3">
+                <View className="flex-1">
+                  <Button
+                    label="▶  Tout lire"
+                    disabled={tracks.length === 0}
+                    onPress={onPlayAll}
+                  />
+                </View>
+                <Pressable
+                  onPress={() => {
+                    void onToggleFavorite();
+                  }}
+                  disabled={adding || removing}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    isFavorite ? 'Retirer des albums aimés' : 'Aimer cet album'
+                  }
+                  className="min-h-[52px] min-w-[52px] items-center justify-center rounded-full px-4"
                   style={{
-                    color: isFavorite ? himbaColors.white : himbaColors.ember,
+                    backgroundColor: isFavorite
+                      ? himbaColors.ember
+                      : himbaColors.earth,
+                    borderWidth: isFavorite ? 0 : 1,
+                    borderColor: himbaColors.copper,
                   }}
                 >
-                  {isFavorite ? '♥ Aimé' : '♡ Aimer'}
-                </Text>
-              </Pressable>
+                  <Text
+                    className="text-xl"
+                    style={{
+                      color: isFavorite ? himbaColors.white : himbaColors.ember,
+                    }}
+                  >
+                    {isFavorite ? '♥' : '♡'}
+                  </Text>
+                </Pressable>
+              </View>
               {actionError ? (
                 <Text className="text-sm text-himba-alert">{actionError}</Text>
               ) : null}

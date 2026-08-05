@@ -4,14 +4,38 @@ export const notificationTypeSchema = z.enum([
   'TRACK_RELEASE',
   'ALBUM_RELEASE',
   'NEW_FOLLOWER',
+  'REPORT_UPDATE',
+]);
+
+export const reportStatusSchema = z.enum([
+  'OPEN',
+  'REVIEWING',
+  'RESOLVED',
+  'DISMISSED',
+]);
+
+export const reportTargetTypeSchema = z.enum(['TRACK', 'ARTIST', 'USER']);
+
+export const reportReasonSchema = z.enum([
+  'INAPPROPRIATE_CONTENT',
+  'FRAUD_SCAM',
+  'IMPERSONATION',
+  'SPAM',
+  'COPYRIGHT',
+  'OTHER',
 ]);
 
 export const notificationDataSchema = z.object({
-  artistId: z.string(),
+  artistId: z.string().optional(),
   trackId: z.string().optional(),
   albumId: z.string().optional(),
   followerId: z.string().optional(),
   followerUsername: z.string().optional(),
+  reportId: z.string().optional(),
+  reportStatus: reportStatusSchema.optional(),
+  targetType: reportTargetTypeSchema.optional(),
+  targetId: z.string().optional(),
+  reason: reportReasonSchema.optional(),
 });
 
 export const notificationSchema = z.object({

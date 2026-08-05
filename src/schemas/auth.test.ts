@@ -1,5 +1,7 @@
 import {
+  authMessageResponseSchema,
   authLoginResponseSchema,
+  forgotPasswordFormSchema,
   loginFormSchema,
   registerFormSchema,
 } from '@/schemas/auth';
@@ -77,6 +79,24 @@ describe('auth schemas', () => {
         email: 'ada@himba.app',
         password: 'Secret12!',
       }).success,
+    ).toBe(true);
+  });
+
+  it('valide le formulaire mot de passe oublié', () => {
+    expect(forgotPasswordFormSchema.safeParse({ email: 'bad' }).success).toBe(
+      false,
+    );
+    expect(
+      forgotPasswordFormSchema.safeParse({ email: 'ada@himba.app' }).success,
+    ).toBe(true);
+  });
+
+  it('valide les réponses message simples', () => {
+    expect(authMessageResponseSchema.safeParse({ message: '' }).success).toBe(
+      false,
+    );
+    expect(
+      authMessageResponseSchema.safeParse({ message: 'OK' }).success,
     ).toBe(true);
   });
 });

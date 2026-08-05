@@ -6,7 +6,8 @@
  * 4. Mini-lecteur système : play/pause + prev/next via events natifs
  *
  * Skip / changement de titre : player.replace() — on ne détruit PAS la
- * MediaSession (sinon musique coupée + fallback Samsung seek ±10 s).
+ * MediaSession (sinon musique coupée + fallback OEM seek ±10 s).
+ * Lock screen : patch expo-audio annonce PREVIOUS/NEXT, pas SEEK_FORWARD/BACK.
  */
 import {
   createAudioPlayer,
@@ -79,6 +80,11 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   /** Ignore les status issus de nos propres play()/pause() (évite la boucle Redux ↔ natif). */
   const ignorePlayingSyncRef = useRef(false);
   const lockScreenActiveRef = useRef(false);
+  /**
+   * Fenêtre anti faux didJustFinish après replace() — sinon l’auto-avance
+   * casse dès le 2ᵉ titre (listeners liés à un cancelled d’effet précédent).
+   */
+  const ignoreEndedUntilRef = useRef(0);
 
   useEffect(() => {
     void setAudioModeAsync({
@@ -172,15 +178,25 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     lockScreenActiveRef.current = false;
   }, [stopProgressTimer]);
 
+  /**
+   * Listeners liés à l’instance player (pas à un effet React).
+   * Soft replace() ne doit PAS invalider ces listeners — sinon plus d’auto-avance.
+   */
   const attachPlayerListeners = useCallback(
-    (player: AudioPlayer, gen: number, cancelled: () => boolean) => {
+    (player: AudioPlayer) => {
       subscriptionRef.current.forEach((s) => s.remove());
       subscriptionRef.current = [
         player.addListener('playbackStatusUpdate', (status: AudioStatus) => {
-          if (cancelled() || gen !== loadGenRef.current) {
+          // Instance morte / remplacée
+          if (playerRef.current !== player) {
             return;
           }
           if (status.didJustFinish) {
+            // 1. Ignorer les fins parasites juste après replace()
+            if (Date.now() < ignoreEndedUntilRef.current) {
+              return;
+            }
+            // 2. Signaler la fin → PlayerQueueAutoAdvance enchaîne
             dispatch(markTrackEnded());
             setPlayerProgress({
               currentTime: 0,
@@ -227,7 +243,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     let lockScreenTimer: ReturnType<typeof setTimeout> | null = null;
     let syncUnlockTimer: ReturnType<typeof setTimeout> | null = null;
-    const isCancelled = () => cancelled;
 
     resetPlayerProgress(metaDurationSec);
 
@@ -239,7 +254,9 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
 
       if (existing) {
         // Soft swap : pas de clearLockScreenControls → évite coupe + seek ±10 s Samsung
+        // Les listeners restent attachés (même instance) — ne pas les lier à cancelled.
         ignorePlayingSyncRef.current = true;
+        ignoreEndedUntilRef.current = Date.now() + 900;
         existing.replace({ uri: sourceUri });
         if (isPlayingRef.current) {
           existing.play();
@@ -270,12 +287,13 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
           { updateInterval: 1000 },
         );
         player.volume = 1;
-        attachPlayerListeners(player, gen, isCancelled);
         playerRef.current = player;
+        attachPlayerListeners(player);
         startProgressTimer();
 
         if (isPlayingRef.current) {
           ignorePlayingSyncRef.current = true;
+          ignoreEndedUntilRef.current = Date.now() + 600;
           player.play();
           lockScreenTimer = setTimeout(() => {
             if (!cancelled && gen === loadGenRef.current) {

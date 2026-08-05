@@ -8,8 +8,10 @@ import {
   getStoredPushToken,
 } from '@/lib/push/pushTokenStorage';
 import {
+  authMessageResponseSchema,
   authUserSchema,
   registerPendingResponseSchema,
+  type ForgotPasswordFormValues,
   type LoginFormValues,
   type RegisterFormValues,
   type RegisterPendingResponse,
@@ -40,6 +42,30 @@ export const authApi = baseApi.injectEndpoints({
         method: 'POST',
         body,
       }),
+      transformResponse: (response: unknown) => {
+        const parsed = authMessageResponseSchema.safeParse(response);
+        if (!parsed.success) {
+          throw new Error('Réponse resend verification invalide');
+        }
+        return parsed.data;
+      },
+    }),
+    forgotPassword: build.mutation<
+      { message: string },
+      ForgotPasswordFormValues
+    >({
+      query: (body) => ({
+        url: '/auth/forgot-password',
+        method: 'POST',
+        body,
+      }),
+      transformResponse: (response: unknown) => {
+        const parsed = authMessageResponseSchema.safeParse(response);
+        if (!parsed.success) {
+          throw new Error('Réponse mot de passe oublié invalide');
+        }
+        return parsed.data;
+      },
     }),
     login: build.mutation({
       query: (body: LoginFormValues) => ({
@@ -113,15 +139,56 @@ export const authApi = baseApi.injectEndpoints({
         return parsed.data;
       },
     }),
+    /** PATCH /users/me — champ username (multipart, unique). */
+    updateMyUsername: build.mutation({
+      query: (username: string) => {
+        const formData = new FormData();
+        formData.append('username', username);
+        return {
+          url: '/users/me',
+          method: 'PATCH',
+          body: formData,
+        };
+      },
+      invalidatesTags: ['Me'],
+      transformResponse: (response: unknown) => {
+        const parsed = authUserSchema.safeParse(response);
+        if (!parsed.success) {
+          throw new Error('Profil utilisateur invalide');
+        }
+        return parsed.data;
+      },
+    }),
+    /** POST /auth/change-password — Bearer + ancien / nouveau. */
+    changePassword: build.mutation<
+      { message: string },
+      { currentPassword: string; newPassword: string }
+    >({
+      query: (body) => ({
+        url: '/auth/change-password',
+        method: 'POST',
+        body,
+      }),
+      transformResponse: (response: unknown) => {
+        const parsed = authMessageResponseSchema.safeParse(response);
+        if (!parsed.success) {
+          throw new Error('Réponse changement mot de passe invalide');
+        }
+        return parsed.data;
+      },
+    }),
   }),
 });
 
 export const {
   useRegisterMutation,
   useResendVerificationMutation,
+  useForgotPasswordMutation,
   useLoginMutation,
   useLogoutMutation,
   useGetMeQuery,
   useLazyGetMeQuery,
   useUpdateMyAvatarMutation,
+  useUpdateMyUsernameMutation,
+  useChangePasswordMutation,
 } = authApi;

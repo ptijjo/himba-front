@@ -57,6 +57,9 @@ export default function PlaylistDetailScreen() {
           coverUrl: t.coverUrl ?? null,
           artistId: t.artistId ?? '',
           durationMs: t.durationMs,
+          artist: t.artist
+            ? { id: t.artist.id, displayName: t.artist.displayName }
+            : undefined,
         }),
       );
   }, [detail]);
@@ -269,7 +272,7 @@ export default function PlaylistDetailScreen() {
       <TrackActionsSheet
         visible={menuTrack !== null}
         title={menuTrack?.title}
-        subtitle={menuTrack?.artist?.displayName ?? menuTrack?.genre ?? undefined}
+        subtitle={menuTrack?.artist?.displayName ?? undefined}
         onClose={() => setMenuTrack(null)}
         actions={
           menuTrack

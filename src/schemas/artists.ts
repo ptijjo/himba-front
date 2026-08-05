@@ -15,6 +15,14 @@ export const becomeArtistFormSchema = becomeArtistSchema.extend({
   }),
 });
 
+/** Changement de nom d’artiste — CGU à re-accepter. */
+export const updateArtistDisplayNameFormSchema = z.object({
+  displayName: z.string().min(2, 'Au moins 2 caractères').max(80),
+  acceptArtistTerms: z.boolean().refine((v) => v === true, {
+    message: 'Tu dois accepter à nouveau les conditions artiste',
+  }),
+});
+
 export const artistSchema = z.object({
   id: z.string(),
   userId: z.string(),
@@ -35,4 +43,7 @@ export const artistSchema = z.object({
 
 export type BecomeArtistValues = z.infer<typeof becomeArtistSchema>;
 export type BecomeArtistFormValues = z.infer<typeof becomeArtistFormSchema>;
+export type UpdateArtistDisplayNameFormValues = z.infer<
+  typeof updateArtistDisplayNameFormSchema
+>;
 export type Artist = z.infer<typeof artistSchema>;

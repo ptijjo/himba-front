@@ -1,4 +1,3 @@
-import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import {
   ActivityIndicator,
@@ -9,6 +8,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AlbumRow } from '@/components/albums/AlbumRow';
 import { himbaColors } from '@/constants/theme';
 import { openAlbum } from '@/lib/navigation/openProfile';
 import { useGetAlbumFavoritesQuery } from '@/store/api/libraryApi';
@@ -63,42 +63,20 @@ export default function LibraryAlbumsScreen() {
                 return null;
               }
               const trackCount = album._count?.tracks ?? 0;
+              const artistName = album.artist?.displayName ?? 'Album';
+              const countLabel =
+                trackCount > 0
+                  ? ` · ${trackCount} titre${trackCount > 1 ? 's' : ''}`
+                  : '';
               return (
-                <Pressable
+                <AlbumRow
                   key={fav.id}
+                  albumId={album.id}
+                  title={album.title}
+                  coverUrl={album.coverUrl}
+                  subtitle={`${artistName}${countLabel}`}
                   onPress={() => openAlbum(album.id)}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Album ${album.title}`}
-                  className="flex-row items-center gap-3 rounded-2xl bg-himba-earth p-3"
-                >
-                  <View
-                    className="h-14 w-14 overflow-hidden rounded-xl"
-                    style={{ backgroundColor: himbaColors.canopy }}
-                  >
-                    {album.coverUrl ? (
-                      <Image
-                        source={{ uri: album.coverUrl }}
-                        style={{ width: 56, height: 56 }}
-                        contentFit="cover"
-                      />
-                    ) : null}
-                  </View>
-                  <View className="flex-1">
-                    <Text
-                      className="font-semibold text-himba-ink"
-                      numberOfLines={1}
-                    >
-                      {album.title}
-                    </Text>
-                    <Text className="text-sm text-himba-mist" numberOfLines={1}>
-                      {album.artist?.displayName ?? 'Album'}
-                      {trackCount > 0
-                        ? ` · ${trackCount} titre${trackCount > 1 ? 's' : ''}`
-                        : ''}
-                    </Text>
-                  </View>
-                  <Text className="text-himba-mist">›</Text>
-                </Pressable>
+                />
               );
             })}
           </View>

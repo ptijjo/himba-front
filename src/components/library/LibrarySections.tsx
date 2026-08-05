@@ -97,6 +97,9 @@ export function LibrarySections() {
           coverUrl: t.coverUrl ?? null,
           artistId: t.artistId ?? '',
           durationMs: t.durationMs,
+          artist: t.artist
+            ? { id: t.artist.id, displayName: t.artist.displayName }
+            : undefined,
         }),
       );
   }, [favorites]);

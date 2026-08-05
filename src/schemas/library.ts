@@ -9,6 +9,12 @@ export const favoriteTrackSchema = z.object({
   coverUrl: z.string().nullable().optional(),
   artistId: z.string().optional(),
   durationMs: z.number().nullable().optional(),
+  artist: z
+    .object({
+      id: z.string(),
+      displayName: z.string(),
+    })
+    .optional(),
 });
 
 export const favoriteSchema = z.object({

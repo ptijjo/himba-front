@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Link, useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { Link } from 'expo-router';
+import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
   KeyboardAvoidingView,
@@ -16,40 +16,34 @@ import { AtmosphereBackdrop } from '@/components/media/AtmosphereBackdrop';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { getErrorMessage } from '@/lib/errors/apiError';
-import { loginFormSchema, type LoginFormValues } from '@/schemas/auth';
-import { useLoginMutation } from '@/store/api/authApi';
+import {
+  forgotPasswordFormSchema,
+  type ForgotPasswordFormValues,
+} from '@/schemas/auth';
+import { useForgotPasswordMutation } from '@/store/api/authApi';
 
-function firstParam(value: string | string[] | undefined): string {
-  if (typeof value === 'string') {
-    return value;
-  }
-  if (Array.isArray(value) && typeof value[0] === 'string') {
-    return value[0];
-  }
-  return '';
-}
-
-export default function LoginScreen() {
-  const [login, { isLoading }] = useLoginMutation();
+export default function ForgotPasswordScreen() {
+  const [forgotPassword, { isLoading }] = useForgotPasswordMutation();
   const [formError, setFormError] = useState<string | null>(null);
-  const params = useLocalSearchParams<{ email?: string | string[] }>();
-  const prefillsEmail = useMemo(() => firstParam(params.email), [params.email]);
+  const [info, setInfo] = useState<string | null>(null);
 
   const {
     control,
     handleSubmit,
     formState: { errors },
-  } = useForm<LoginFormValues>({
-    resolver: zodResolver(loginFormSchema),
-    defaultValues: { login: prefillsEmail, password: '' },
+  } = useForm<ForgotPasswordFormValues>({
+    resolver: zodResolver(forgotPasswordFormSchema),
+    defaultValues: { email: '' },
   });
 
   const onSubmit = handleSubmit(async (values) => {
     setFormError(null);
+    setInfo(null);
     try {
-      await login(values).unwrap();
+      const result = await forgotPassword(values).unwrap();
+      setInfo(result.message);
     } catch (error) {
-      setFormError(getErrorMessage(error, 'Connexion impossible'));
+      setFormError(getErrorMessage(error, 'Envoi impossible'));
     }
   });
 
@@ -73,73 +67,47 @@ export default function LoginScreen() {
               className="mb-2 text-center text-3xl text-himba-ink"
               style={{ fontFamily: 'Literata_700Bold' }}
             >
-              Bienvenue
+              Mot de passe oublié
             </Text>
             <Text className="mb-8 text-center text-base text-himba-mist">
-              {prefillsEmail
-                ? 'Après validation de ton email, connecte-toi pour entrer dans Himba.'
-                : 'Connecte-toi pour découvrir les sons qui voyagent.'}
+              Entre ton email pour recevoir un lien de réinitialisation.
             </Text>
 
             <View className="gap-4 rounded-3xl border border-himba-canopy/60 bg-himba-night/70 p-4">
               <Controller
                 control={control}
-                name="login"
+                name="email"
                 render={({ field: { onChange, onBlur, value } }) => (
                   <Input
-                    label="Email ou pseudo"
+                    label="Email"
                     autoCapitalize="none"
                     autoCorrect={false}
                     keyboardType="email-address"
-                    textContentType="username"
+                    textContentType="emailAddress"
                     value={value}
                     onBlur={onBlur}
                     onChangeText={onChange}
-                    error={errors.login?.message}
+                    error={errors.email?.message}
                   />
                 )}
               />
-              <Controller
-                control={control}
-                name="password"
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <Input
-                    label="Mot de passe"
-                    isPassword
-                    textContentType="password"
-                    value={value}
-                    onBlur={onBlur}
-                    onChangeText={onChange}
-                    error={errors.password?.message}
-                  />
-                )}
-              />
-              <View className="items-end">
-                <Link href="/(auth)/forgot-password">
-                  <Text className="text-sm font-semibold text-himba-copper">
-                    Mot de passe oublié ?
-                  </Text>
-                </Link>
-              </View>
 
               {formError ? (
                 <Text className="text-center text-sm text-himba-alert">
                   {formError}
                 </Text>
               ) : null}
+              {info ? (
+                <Text className="text-center text-sm text-himba-ember">{info}</Text>
+              ) : null}
 
-              <Button
-                label="Se connecter"
-                loading={isLoading}
-                onPress={onSubmit}
-              />
+              <Button label="Envoyer le lien" loading={isLoading} onPress={onSubmit} />
             </View>
 
-            <View className="mt-8 flex-row items-center justify-center gap-1">
-              <Text className="text-himba-mist">Pas encore de compte ?</Text>
-              <Link href="/(auth)/register">
+            <View className="mt-8 items-center">
+              <Link href="/(auth)/login">
                 <Text className="font-semibold text-himba-ember">
-                  S&apos;inscrire
+                  Retour à la connexion
                 </Text>
               </Link>
             </View>
@@ -149,3 +117,4 @@ export default function LoginScreen() {
     </View>
   );
 }
+

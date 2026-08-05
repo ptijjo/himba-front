@@ -37,6 +37,26 @@ describe('schemas/notifications', () => {
     expect(parsed.success).toBe(true);
   });
 
+  it('parse une notification REPORT_UPDATE', () => {
+    const parsed = notificationSchema.safeParse({
+      id: 'n3',
+      userId: 'u1',
+      type: 'REPORT_UPDATE',
+      title: 'Signalement traité',
+      body: 'Ton signalement a été traité.',
+      data: {
+        reportId: 'r1',
+        reportStatus: 'RESOLVED',
+        targetType: 'TRACK',
+        targetId: 't1',
+        reason: 'SPAM',
+      },
+      readAt: null,
+      createdAt: '2026-08-05T10:00:00.000Z',
+    });
+    expect(parsed.success).toBe(true);
+  });
+
   it('rejette un type inconnu', () => {
     const parsed = notificationSchema.safeParse({
       id: 'n1',

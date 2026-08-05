@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { NotificationSwipeRow } from '@/components/notifications/NotificationSwipeRow';
 import { TrackActionsSheet } from '@/components/tracks/TrackActionsSheet';
 import { himbaColors } from '@/constants/theme';
 import { openArtistProfile, openUserProfile } from '@/lib/navigation/openProfile';
@@ -39,8 +40,8 @@ function isUnread(n: AppNotification): boolean {
 }
 
 /**
- * Onglet Actus — sorties + followers.
- * Non-lues : pastille + gras. Menu ⋮ : supprimer. Header : tout lire / tout effacer.
+ * Onglet Actus — sorties, followers, réponses aux signalements.
+ * Swipe G/D pour supprimer · menu ⋮ · header tout lire / tout effacer.
  */
 export default function ActusScreen() {
   const { data, isLoading, isFetching, refetch } = useGetNotificationsQuery({
@@ -64,13 +65,26 @@ export default function ActusScreen() {
       if (isUnread(item)) {
         void markRead(item.id);
       }
+      // Réponse signalement : lecture seule dans Actus (pas de navigation)
+      if (item.type === 'REPORT_UPDATE') {
+        return;
+      }
       if (item.type === 'NEW_FOLLOWER' && item.data.followerId) {
         openUserProfile(item.data.followerId);
         return;
       }
-      openArtistProfile(item.data.artistId);
+      if (item.data.artistId) {
+        openArtistProfile(item.data.artistId);
+      }
     },
     [markRead],
+  );
+
+  const onDeleteItem = useCallback(
+    (id: string) => {
+      void deleteOne(id);
+    },
+    [deleteOne],
   );
 
   const onConfirmClearAll = () => {
@@ -156,64 +170,16 @@ export default function ActusScreen() {
                 </Text>
               </View>
             }
-            renderItem={({ item }) => {
-              const unread = isUnread(item);
-              return (
-                <View
-                  className={`min-h-[72px] flex-row items-stretch rounded-2xl ${
-                    unread ? 'bg-himba-earth' : 'bg-himba-earth/55'
-                  }`}
-                >
-                  <Pressable
-                    onPress={() => onPressItem(item)}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: unread }}
-                    accessibilityLabel={`${unread ? 'Non lue. ' : ''}${item.title}. ${item.body}`}
-                    className="min-h-[72px] flex-1 flex-row items-start gap-3 px-3 py-3 pr-1"
-                  >
-                    <View className="w-3 items-center pt-2">
-                      {unread ? (
-                        <View
-                          className="h-2.5 w-2.5 rounded-full bg-himba-ember"
-                          accessibilityElementsHidden
-                          importantForAccessibility="no"
-                        />
-                      ) : null}
-                    </View>
-                    <View className="flex-1 gap-1">
-                      <Text
-                        className={`text-himba-ink ${
-                          unread ? 'font-bold' : 'font-normal'
-                        }`}
-                      >
-                        {item.title}
-                      </Text>
-                      <Text
-                        className={`text-himba-mist ${
-                          unread ? 'font-semibold' : 'font-normal'
-                        }`}
-                      >
-                        {item.body}
-                      </Text>
-                      <Text className="text-xs text-himba-mist">
-                        {formatNotifDate(item.createdAt)}
-                      </Text>
-                    </View>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => setMenuItem(item)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Options pour ${item.title}`}
-                    hitSlop={8}
-                    className="min-h-[44px] min-w-[44px] items-center justify-center px-3"
-                  >
-                    <Text className="text-xl leading-none text-himba-mist">
-                      ⋮
-                    </Text>
-                  </Pressable>
-                </View>
-              );
-            }}
+            renderItem={({ item }) => (
+              <NotificationSwipeRow
+                item={item}
+                unread={isUnread(item)}
+                dateLabel={formatNotifDate(item.createdAt)}
+                onPress={() => onPressItem(item)}
+                onOpenMenu={() => setMenuItem(item)}
+                onDelete={() => onDeleteItem(item.id)}
+              />
+            )}
           />
         )}
       </View>

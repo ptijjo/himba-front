@@ -153,7 +153,10 @@ export default function LectureScreen() {
   };
 
   const artistName =
-    track?.artist?.displayName ?? track?.genre ?? null;
+    track?.artist?.displayName ??
+    trackDetail?.artist?.displayName ??
+    null;
+  const artistProfileId = track?.artistId || trackDetail?.artistId || null;
 
   return (
     <SafeAreaView className="flex-1 bg-himba-night" edges={['top']}>
@@ -215,11 +218,11 @@ export default function LectureScreen() {
             {track && artistName ? (
               <Pressable
                 onPress={() => {
-                  if (track.artistId) {
-                    openArtistProfile(track.artistId);
+                  if (artistProfileId) {
+                    openArtistProfile(artistProfileId);
                   }
                 }}
-                disabled={!track.artistId}
+                disabled={!artistProfileId}
                 accessibilityRole="link"
                 accessibilityLabel={`Artiste ${artistName}`}
               >
@@ -229,7 +232,7 @@ export default function LectureScreen() {
               </Pressable>
             ) : (
               <Text style={styles.nowSubtitle}>
-                Ouvre une playlist ou choisis un titre
+                {track ? 'Artiste' : 'Ouvre une playlist ou choisis un titre'}
               </Text>
             )}
           </View>
