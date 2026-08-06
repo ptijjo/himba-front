@@ -1,3 +1,9 @@
+import {
+  isPriceInAllowedRange,
+  parsePriceEurosInput,
+  TRACK_PRICE_MAX_EUROS,
+  TRACK_PRICE_MIN_EUROS,
+} from '@/constants/pricing';
 import { ratingSummarySchema } from '@/schemas/ratings';
 import { trackPricingSchema } from '@/schemas/studio';
 import { moneyEurosSchema } from '@/schemas/tracks';
@@ -94,11 +100,19 @@ export const updateAlbumSchema = z
       });
       return;
     }
-    const euros = Number(raw.replace(',', '.'));
-    if (!Number.isFinite(euros) || euros <= 0) {
+    const euros = parsePriceEurosInput(raw);
+    if (euros == null || euros <= 0) {
       ctx.addIssue({
         code: 'custom',
         message: 'Prix invalide',
+        path: ['priceEuros'],
+      });
+      return;
+    }
+    if (!isPriceInAllowedRange(euros)) {
+      ctx.addIssue({
+        code: 'custom',
+        message: `Prix entre ${TRACK_PRICE_MIN_EUROS.toFixed(2)} et ${TRACK_PRICE_MAX_EUROS.toFixed(2)} €`,
         path: ['priceEuros'],
       });
     }
@@ -115,6 +129,5 @@ export function toAlbumPrice(values: UpdateAlbumValues): number | null {
   if (values.pricing === 'free') {
     return null;
   }
-  const euros = Number((values.priceEuros ?? '').replace(',', '.'));
-  return Math.round(euros * 100) / 100;
+  return parsePriceEurosInput(values.priceEuros ?? '');
 }

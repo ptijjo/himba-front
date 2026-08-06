@@ -17,14 +17,21 @@ import { baseApi } from '@/store/api/baseApi';
 
 export type CreateTrackFormData = FormData;
 
-/** Corps PATCH /tracks/:id — UpdateTrackDto (JSON). */
-export type UpdateTrackBody = {
+/** Corps PATCH /tracks/:id — UpdateTrackDto (JSON, permet `price: null`). */
+export type UpdateTrackJsonBody = {
   title?: string;
   genre?: string;
   /** null = gratuit */
   price?: number | null;
   durationMs?: number;
 };
+
+export type UpdateTrackArg =
+  | { id: string; formData: FormData }
+  | { id: string; body: UpdateTrackJsonBody };
+
+/** @deprecated alias — préférer UpdateTrackJsonBody */
+export type UpdateTrackBody = UpdateTrackJsonBody;
 
 export const tracksApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
@@ -122,15 +129,23 @@ export const tracksApi = baseApi.injectEndpoints({
       },
     }),
     /**
-     * PATCH /tracks/:id — JSON UpdateTrackDto (owner ARTIST ou ADMIN).
-     * Pas de remplacement audio/cover sur cette route API.
+     * PATCH /tracks/:id — multipart (nouvelle cover) ou JSON (méta + price null).
      */
-    updateTrack: build.mutation<Track, { id: string; body: UpdateTrackBody }>({
-      query: ({ id, body }) => ({
-        url: `/tracks/${id}`,
-        method: 'PATCH',
-        body,
-      }),
+    updateTrack: build.mutation<Track, UpdateTrackArg>({
+      query: (arg) => {
+        if ('formData' in arg) {
+          return {
+            url: `/tracks/${arg.id}`,
+            method: 'PATCH',
+            body: arg.formData,
+          };
+        }
+        return {
+          url: `/tracks/${arg.id}`,
+          method: 'PATCH',
+          body: arg.body,
+        };
+      },
       invalidatesTags: ['Tracks', 'Albums', 'Recommendations'],
       transformResponse: (response: unknown) => {
         const parsed = trackSchema.safeParse(response);

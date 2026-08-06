@@ -2,6 +2,7 @@ import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 
+import { PurchaseGate } from '@/components/player/PurchaseGate';
 import { useAudioPlayerControls } from '@/providers/AudioPlayerProvider';
 import { useAppDispatch, useAppSelector } from '@/store';
 import { clearPlayer, setPlaying } from '@/store/slices/playerSlice';
@@ -54,7 +55,9 @@ export function MiniPlayer() {
             </Text>
           </View>
         </Pressable>
-        {!needsPurchase ? (
+        {needsPurchase ? (
+          <PurchaseGate track={track} compact />
+        ) : (
           <Pressable
             onPress={toggle}
             accessibilityRole="button"
@@ -63,7 +66,7 @@ export function MiniPlayer() {
           >
             <Text className="text-himba-ink">{isPlaying ? '❚❚' : '▶'}</Text>
           </Pressable>
-        ) : null}
+        )}
         <Pressable
           onPress={() => {
             dispatch(setPlaying(false));

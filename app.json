@@ -2,7 +2,7 @@
   "expo": {
     "name": "Himba",
     "slug": "himba",
-    "version": "1.0.21",
+    "version": "1.0.22",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "himba",
@@ -22,7 +22,7 @@
     },
     "android": {
       "package": "fr.cellulenoire.himba",
-      "versionCode": 23,
+      "versionCode": 24,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#0B0618",
@@ -63,6 +63,13 @@
         }
       ],
       [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.fr.cellulenoire.himba",
+          "enableGooglePay": false
+        }
+      ],
+      [
         "expo-image-picker",
         {
           "photosPermission": "Himba a besoin d’accéder à tes photos pour la photo de profil.",
@@ -71,7 +78,8 @@
         }
       ],
       "expo-document-picker",
-      "expo-asset"
+      "expo-asset",
+      "@stripe/stripe-react-native"
     ],
     "experiments": {
       "typedRoutes": true,

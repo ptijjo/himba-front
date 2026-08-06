@@ -15,6 +15,7 @@ import { useNotificationOpenHandler } from '@/hooks/useNotificationOpenHandler';
 import { useNotificationsLiveSync } from '@/hooks/useNotificationsLiveSync';
 import { usePushRegistration } from '@/hooks/usePushRegistration';
 import { AudioPlayerProvider } from '@/providers/AudioPlayerProvider';
+import { HimbaStripeProvider } from '@/providers/HimbaStripeProvider';
 import { ToastProvider } from '@/providers/ToastProvider';
 import { store } from '@/store';
 
@@ -64,11 +65,13 @@ export default function RootLayout() {
   return (
     <Provider store={store}>
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <ToastProvider>
-          <AudioPlayerProvider>
-            <RootNavigator />
-          </AudioPlayerProvider>
-        </ToastProvider>
+        <HimbaStripeProvider>
+          <ToastProvider>
+            <AudioPlayerProvider>
+              <RootNavigator />
+            </AudioPlayerProvider>
+          </ToastProvider>
+        </HimbaStripeProvider>
       </GestureHandlerRootView>
     </Provider>
   );

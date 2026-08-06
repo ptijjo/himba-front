@@ -43,7 +43,7 @@ export default function EditAlbumScreen() {
   }
 
   if (!albumId) {
-    return <Redirect href="/(app)/(tabs)/studio" />;
+    return <Redirect href="/(app)/(tabs)/profile" />;
   }
 
   return <EditAlbumForm albumId={albumId} />;
@@ -312,7 +312,7 @@ function EditAlbumForm({ albumId }: { albumId: string }) {
                   onChangeText={onChange}
                   keyboardType="decimal-pad"
                   error={errors.priceEuros?.message}
-                  placeholder="4.99"
+                  placeholder="0.50 — 99.99"
                 />
               )}
             />

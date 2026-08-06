@@ -134,6 +134,37 @@ describe('studioTrackSchema', () => {
       expect(toPrice(parsed.data)).toBe(1.99);
     }
   });
+
+  it('refuse un prix hors fourchette API (min 0.50 € Stripe)', () => {
+    const parsed = studioTrackSchema.safeParse({
+      title: 'Rebelle',
+      artistName: 'FOFO',
+      genre: 'POP',
+      albumMode: 'none',
+      cover: baseCover,
+      pricing: 'paid',
+      priceEuros: '0.10',
+      audio: baseAudio,
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it('accepte 0.50 € (borne basse Stripe EUR)', () => {
+    const parsed = studioTrackSchema.safeParse({
+      title: 'Rebelle',
+      artistName: 'FOFO',
+      genre: 'POP',
+      albumMode: 'none',
+      cover: baseCover,
+      pricing: 'paid',
+      priceEuros: '0.50',
+      audio: baseAudio,
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(toPrice(parsed.data)).toBe(0.5);
+    }
+  });
 });
 
 describe('updateTrackSchema', () => {

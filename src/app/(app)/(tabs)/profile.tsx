@@ -1,15 +1,18 @@
 import { zodResolver } from '@hookform/resolvers/zod';
+import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Alert, ScrollView, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ArtistTermsGate } from '@/components/artists/ArtistTermsGate';
 import { ProfileAccordion } from '@/components/profile/ProfileAccordion';
 import { ProfileAvatar } from '@/components/profile/ProfileAvatar';
+import { StudioLibrarySection } from '@/components/studio/StudioLibrarySection';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { himbaColors } from '@/constants/theme';
+import { canPublishMusic } from '@/lib/auth/canPublishMusic';
 import { getErrorMessage } from '@/lib/errors/apiError';
 import {
   formatUserRoleLabel,
@@ -29,6 +32,7 @@ import {
   type UpdateArtistDisplayNameFormValues,
 } from '@/schemas/artists';
 import { useAppDispatch, useAppSelector } from '@/store';
+import { useGetAlbumsQuery } from '@/store/api/albumsApi';
 import {
   useBecomeArtistMutation,
   useGetMyArtistQuery,
@@ -40,9 +44,10 @@ import {
   useLazyGetMeQuery,
   useUpdateMyUsernameMutation,
 } from '@/store/api/authApi';
+import { useGetTracksQuery } from '@/store/api/tracksApi';
 import { setCredentials } from '@/store/slices/authSlice';
 
-type ProfileSection = 'username' | 'password' | 'artist' | null;
+type ProfileSection = 'username' | 'password' | 'artist' | 'catalog' | null;
 
 export default function ProfileScreen() {
   const user = useAppSelector((s) => s.auth.user);
@@ -171,6 +176,14 @@ export default function ProfileScreen() {
           </View>
         ) : null}
 
+        {myArtist && canPublishMusic(user.role) ? (
+          <ArtistCatalogSection
+            artistId={myArtist.id}
+            open={openSection === 'catalog'}
+            onToggle={() => toggle('catalog')}
+          />
+        ) : null}
+
         <Button
           label="Se déconnecter"
           variant="secondary"
@@ -179,6 +192,71 @@ export default function ProfileScreen() {
         />
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+/**
+ * Gestion titres / albums depuis le profil — modif nom, cover, gratuit/payant.
+ */
+function ArtistCatalogSection({
+  artistId,
+  open,
+  onToggle,
+}: {
+  artistId: string;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const { data: albumsData, isLoading: loadingAlbums } = useGetAlbumsQuery({
+    artistId,
+    limit: 50,
+  });
+  const { data: tracksPage, isLoading: loadingTracks } = useGetTracksQuery({
+    artistId,
+    limit: 50,
+  });
+
+  const albums = albumsData?.items ?? [];
+  const tracks = tracksPage?.items ?? [];
+  const loading = loadingAlbums || loadingTracks;
+
+  return (
+    <View className="gap-2">
+      <Text className="text-[11px] font-semibold tracking-[2px] text-himba-mist">
+        CATALOGUE
+      </Text>
+      <ProfileAccordion
+        title="Mes musiques & albums"
+        subtitle={
+          loading
+            ? 'Chargement…'
+            : `${tracks.length} titre${tracks.length > 1 ? 's' : ''} · ${albums.length} album${albums.length > 1 ? 's' : ''}`
+        }
+        open={open}
+        onToggle={onToggle}
+      >
+        <View className="gap-4">
+          <Text className="text-sm text-himba-mist">
+            Change le nom, la cover, le mode gratuit / payant et le prix.
+          </Text>
+          <Pressable
+            onPress={() => router.push('/(app)/(tabs)/studio')}
+            accessibilityRole="button"
+            accessibilityLabel="Ouvrir le Studio pour publier"
+            className="min-h-11 items-center justify-center rounded-2xl bg-himba-ember px-4"
+          >
+            <Text className="font-semibold text-himba-ink">
+              Publier une musique
+            </Text>
+          </Pressable>
+          <StudioLibrarySection
+            albums={albums}
+            tracks={tracks}
+            loading={loading}
+          />
+        </View>
+      </ProfileAccordion>
+    </View>
   );
 }
 

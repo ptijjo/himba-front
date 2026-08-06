@@ -1,4 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
@@ -30,7 +32,7 @@ import {
 } from '@/store/api/tracksApi';
 
 /**
- * Édition titre — PATCH /tracks/:id (ARTIST owner ou ADMIN).
+ * Édition titre — PATCH /tracks/:id (JSON ou multipart cover).
  */
 export default function EditTrackScreen() {
   const user = useAppSelector((s) => s.auth.user);
@@ -42,7 +44,7 @@ export default function EditTrackScreen() {
   }
 
   if (!trackId) {
-    return <Redirect href="/(app)/(tabs)/studio" />;
+    return <Redirect href="/(app)/(tabs)/profile" />;
   }
 
   return <EditTrackForm trackId={trackId} />;
@@ -74,11 +76,13 @@ function EditTrackForm({ trackId }: { trackId: string }) {
       genre: 'AFRO',
       pricing: 'free',
       priceEuros: '',
+      cover: null,
     },
   });
 
   const selectedGenre = useWatch({ control, name: 'genre' });
   const pricing = useWatch({ control, name: 'pricing' });
+  const cover = useWatch({ control, name: 'cover' });
 
   // 1. Hydrater depuis GET /tracks/:id (owner / ADMIN tranché par l’API).
   useEffect(() => {
@@ -91,22 +95,92 @@ function EditTrackForm({ trackId }: { trackId: string }) {
       genre: resolveGenre(track.genre),
       pricing: paid ? 'paid' : 'free',
       priceEuros: paid && track.price != null ? String(track.price) : '',
+      cover: null,
     });
   }, [track, reset]);
+
+  const pickCover = async () => {
+    setFormError(null);
+    const permission =
+      await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      setFormError('Autorise l’accès aux photos pour la couverture.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.85,
+    });
+    if (result.canceled || !result.assets[0]) {
+      return;
+    }
+    const asset = result.assets[0];
+    const mime = asset.mimeType ?? 'image/jpeg';
+    if (
+      mime !== 'image/jpeg' &&
+      mime !== 'image/png' &&
+      mime !== 'image/webp'
+    ) {
+      setFormError('Couverture : JPEG, PNG ou WebP.');
+      setValue('cover', null, { shouldValidate: true });
+      return;
+    }
+    const filename =
+      asset.fileName ??
+      `cover.${mime === 'image/png' ? 'png' : mime === 'image/webp' ? 'webp' : 'jpg'}`;
+    setValue(
+      'cover',
+      { uri: asset.uri, name: filename, mimeType: mime },
+      { shouldValidate: true },
+    );
+  };
 
   const onSubmit = handleSubmit(async (values) => {
     setFormError(null);
     setFeedback(null);
     try {
-      await updateTrack({
-        id: trackId,
-        body: {
-          title: values.title.trim(),
-          genre: values.genre,
-          price: toUpdateTrackPrice(values),
-        },
-      }).unwrap();
+      const price = toUpdateTrackPrice(values);
+      const title = values.title.trim();
+      const genre = values.genre;
+
+      // 1. Nouvelle cover → multipart ; sinon JSON (price: null fiable).
+      if (values.cover) {
+        const formData = new FormData();
+        formData.append('title', title);
+        formData.append('genre', genre);
+        if (price != null) {
+          formData.append('price', String(price));
+        }
+        formData.append(
+          'cover',
+          {
+            uri: values.cover.uri,
+            name: values.cover.name,
+            type: values.cover.mimeType,
+          } as unknown as Blob,
+        );
+        await updateTrack({ id: trackId, formData }).unwrap();
+        // 2. Multipart ne gère pas bien price null → second PATCH JSON si gratuit.
+        if (price === null) {
+          await updateTrack({
+            id: trackId,
+            body: { price: null },
+          }).unwrap();
+        }
+      } else {
+        await updateTrack({
+          id: trackId,
+          body: {
+            title,
+            genre,
+            price,
+          },
+        }).unwrap();
+      }
       setFeedback('Titre mis à jour.');
+      setValue('cover', null);
     } catch (e) {
       setFormError(getErrorMessage(e, 'Modification impossible'));
     }
@@ -129,6 +203,8 @@ function EditTrackForm({ trackId }: { trackId: string }) {
     );
   }
 
+  const previewUri = cover?.uri ?? track.coverUrl ?? null;
+
   return (
     <SafeAreaView className="flex-1 bg-himba-night" edges={['top']}>
       <ScrollView
@@ -138,10 +214,37 @@ function EditTrackForm({ trackId }: { trackId: string }) {
       >
         <Text className="text-2xl font-bold text-himba-ink">Modifier le titre</Text>
         <Text className="text-sm text-himba-mist">
-          Titre, genre et prix — l’audio d’origine est conservé.
+          Titre, cover, genre et prix — l’audio d’origine est conservé.
         </Text>
 
         <View className="gap-4 rounded-2xl bg-himba-earth p-4">
+          <View className="gap-2">
+            <Text className="text-sm font-medium text-himba-mist">
+              Couverture
+            </Text>
+            <Pressable
+              onPress={() => {
+                void pickCover();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Changer la couverture"
+              className="h-40 items-center justify-center overflow-hidden rounded-2xl bg-himba-night"
+            >
+              {previewUri ? (
+                <Image
+                  source={{ uri: previewUri }}
+                  style={{ width: '100%', height: '100%' }}
+                  contentFit="cover"
+                />
+              ) : (
+                <Text className="text-himba-mist">Ajouter une couverture</Text>
+              )}
+            </Pressable>
+            <Text className="text-xs text-himba-mist">
+              Laisse tel quel pour conserver l’image actuelle.
+            </Text>
+          </View>
+
           <Controller
             control={control}
             name="title"
@@ -232,7 +335,7 @@ function EditTrackForm({ trackId }: { trackId: string }) {
                   onChangeText={onChange}
                   keyboardType="decimal-pad"
                   error={errors.priceEuros?.message}
-                  placeholder="1.99"
+                  placeholder="0.50 — 99.99"
                 />
               )}
             />

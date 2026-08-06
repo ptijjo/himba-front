@@ -1,6 +1,43 @@
 import { z } from 'zod';
 
+import {
+  isPriceInAllowedRange,
+  parsePriceEurosInput,
+  TRACK_PRICE_MAX_EUROS,
+  TRACK_PRICE_MIN_EUROS,
+} from '@/constants/pricing';
 import { trackGenreSchema } from '@/schemas/genres';
+
+function refinePaidPrice(
+  priceEuros: string | undefined,
+  ctx: z.RefinementCtx,
+): void {
+  const raw = priceEuros?.trim() ?? '';
+  if (!raw) {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'Indique un prix',
+      path: ['priceEuros'],
+    });
+    return;
+  }
+  const euros = parsePriceEurosInput(raw);
+  if (euros == null || euros <= 0) {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'Prix invalide',
+      path: ['priceEuros'],
+    });
+    return;
+  }
+  if (!isPriceInAllowedRange(euros)) {
+    ctx.addIssue({
+      code: 'custom',
+      message: `Prix entre ${TRACK_PRICE_MIN_EUROS.toFixed(2)} et ${TRACK_PRICE_MAX_EUROS.toFixed(2)} €`,
+      path: ['priceEuros'],
+    });
+  }
+}
 
 export const trackPricingSchema = z.enum(['free', 'paid']);
 
@@ -65,39 +102,13 @@ export const studioTrackSchema = z
       });
     }
 
-    if (data.pricing !== 'paid') {
-      return;
-    }
-    const raw = data.priceEuros?.trim() ?? '';
-    if (!raw) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'Indique un prix',
-        path: ['priceEuros'],
-      });
-      return;
-    }
-    const euros = Number(raw.replace(',', '.'));
-    if (!Number.isFinite(euros) || euros <= 0) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'Prix invalide',
-        path: ['priceEuros'],
-      });
-      return;
-    }
-    const cents = Math.round(euros * 100);
-    if (cents < 1) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'Prix trop bas',
-        path: ['priceEuros'],
-      });
+    if (data.pricing === 'paid') {
+      refinePaidPrice(data.priceEuros, ctx);
     }
   });
 
 /**
- * Formulaire édition titre — UpdateTrackDto (JSON, pas de remplacement audio).
+ * Formulaire édition titre — UpdateTrackDto (+ cover multipart optionnelle).
  */
 export const updateTrackSchema = z
   .object({
@@ -105,27 +116,12 @@ export const updateTrackSchema = z
     genre: trackGenreSchema,
     pricing: trackPricingSchema,
     priceEuros: z.string().optional(),
+    /** Nouvelle cover locale — omit / null = conserver l’existante. */
+    cover: trackCoverFileSchema.nullable().optional(),
   })
   .superRefine((data, ctx) => {
-    if (data.pricing !== 'paid') {
-      return;
-    }
-    const raw = data.priceEuros?.trim() ?? '';
-    if (!raw) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'Indique un prix',
-        path: ['priceEuros'],
-      });
-      return;
-    }
-    const euros = Number(raw.replace(',', '.'));
-    if (!Number.isFinite(euros) || euros <= 0) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'Prix invalide',
-        path: ['priceEuros'],
-      });
+    if (data.pricing === 'paid') {
+      refinePaidPrice(data.priceEuros, ctx);
     }
   });
 
@@ -138,16 +134,14 @@ export function toPrice(values: StudioTrackValues): number | null {
   if (values.pricing === 'free') {
     return null;
   }
-  const euros = Number((values.priceEuros ?? '').replace(',', '.'));
-  return Math.round(euros * 100) / 100;
+  return parsePriceEurosInput(values.priceEuros ?? '');
 }
 
 export function toUpdateTrackPrice(values: UpdateTrackValues): number | null {
   if (values.pricing === 'free') {
     return null;
   }
-  const euros = Number((values.priceEuros ?? '').replace(',', '.'));
-  return Math.round(euros * 100) / 100;
+  return parsePriceEurosInput(values.priceEuros ?? '');
 }
 
 /** Aligné sur himba-api `ALLOWED_AUDIO_MIME` (+ sniffe magic bytes côté serveur). */

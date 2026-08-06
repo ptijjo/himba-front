@@ -20,6 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { HimbaLogo } from '@/components/brand/HimbaWordmark';
 import { StudioLibrarySection } from '@/components/studio/StudioLibrarySection';
+import { TrackRightsConfirmModal } from '@/components/studio/TrackRightsConfirmModal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { himbaColors } from '@/constants/theme';
@@ -241,6 +242,10 @@ function TrackPublishPanel({
   const [createTrack, { isLoading: publishing }] = useCreateTrackMutation();
   const [feedback, setFeedback] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  /** Gate droits d’auteur — valeurs validées en attente avant POST /tracks. */
+  const [rightsModalVisible, setRightsModalVisible] = useState(false);
+  const [pendingTrackValues, setPendingTrackValues] =
+    useState<StudioTrackValues | null>(null);
 
   const {
     control,
@@ -267,6 +272,7 @@ function TrackPublishPanel({
   const selectedGenre = useWatch({ control, name: 'genre' });
   const audio = useWatch({ control, name: 'audio' });
   const cover = useWatch({ control, name: 'cover' });
+  const pricing = useWatch({ control, name: 'pricing' });
   const selectedAlbumId = useWatch({ control, name: 'albumId' });
 
   useEffect(() => {
@@ -390,7 +396,8 @@ function TrackPublishPanel({
     setFormError(null);
   };
 
-  const onSubmit = handleSubmit(async (values) => {
+  // 1. Valider le formulaire → ouvrir la popup droits (pas encore d’upload)
+  const onSubmit = handleSubmit((values) => {
     setFeedback(null);
     setFormError(null);
     if (!hasArtist) {
@@ -401,6 +408,25 @@ function TrackPublishPanel({
       setFormError('Fichier audio M4A / AAC / MP3 requis.');
       return;
     }
+    setPendingTrackValues(values);
+    setRightsModalVisible(true);
+  });
+
+  const cancelRightsConfirm = () => {
+    setRightsModalVisible(false);
+    setPendingTrackValues(null);
+  };
+
+  // 2. Case cochée + confirmer → POST /tracks ; sinon upload annulé
+  const confirmAndPublish = async () => {
+    const values = pendingTrackValues;
+    if (!values?.audio) {
+      cancelRightsConfirm();
+      return;
+    }
+
+    setFeedback(null);
+    setFormError(null);
 
     try {
       const albumId =
@@ -440,6 +466,7 @@ function TrackPublishPanel({
       }
 
       const track = await createTrack(formData).unwrap();
+      cancelRightsConfirm();
       resetTrackForm();
       Alert.alert(
         'Titre publié',
@@ -462,11 +489,20 @@ function TrackPublishPanel({
       );
     } catch (e) {
       setFormError(getErrorMessage(e, 'Publication impossible'));
+      cancelRightsConfirm();
     }
-  });
+  };
 
   return (
     <>
+      <TrackRightsConfirmModal
+        visible={rightsModalVisible}
+        loading={publishing}
+        onConfirm={() => {
+          void confirmAndPublish();
+        }}
+        onCancel={cancelRightsConfirm}
+      />
       <View style={styles.hero}>
         <Text style={styles.heroIcon}>☁︎↑</Text>
         <Text style={styles.heroEyebrow}>STUDIO HIMBA</Text>
@@ -707,7 +743,7 @@ function TrackPublishPanel({
           <View className="flex-row gap-3">
             <ChoiceChip
               label="Gratuit"
-              selected
+              selected={pricing === 'free'}
               onPress={() =>
                 setValue('pricing', 'free', { shouldValidate: true })
               }
@@ -715,15 +751,35 @@ function TrackPublishPanel({
             />
             <ChoiceChip
               label="Payant"
-              selected={false}
-              disabled
-              onPress={() => undefined}
+              selected={pricing === 'paid'}
+              onPress={() =>
+                setValue('pricing', 'paid', { shouldValidate: true })
+              }
               grow
             />
           </View>
-          <Text className="text-xs text-himba-mist">
-            Le mode payant n’est pas encore disponible.
-          </Text>
+          {pricing === 'paid' ? (
+            <Controller
+              control={control}
+              name="priceEuros"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <Input
+                  label="Prix (€)"
+                  value={value ?? ''}
+                  onBlur={onBlur}
+                  onChangeText={onChange}
+                  keyboardType="decimal-pad"
+                  error={errors.priceEuros?.message}
+                  placeholder="0.50 — 99.99"
+                />
+              )}
+            />
+          ) : (
+            <Text className="text-xs text-himba-mist">
+              Gratuit : écoute ouverte. Payant : achat Stripe requis pour
+              streamer.
+            </Text>
+          )}
         </View>
 
         <Button

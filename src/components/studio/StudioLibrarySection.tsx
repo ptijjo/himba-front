@@ -153,7 +153,7 @@ export function StudioLibrarySection({
       <View className="mt-2">
         <Text className="text-lg font-bold text-himba-ink">Mes titres</Text>
         <Text className="mt-1 text-sm text-himba-mist">
-          Métadonnées uniquement — l’audio ne se remplace pas ici.
+          Titre, cover, genre et prix — l’audio ne se remplace pas ici.
         </Text>
       </View>
 

@@ -20,6 +20,7 @@ import {
 } from '@/components/player/PlayerControlIcons';
 import { PlayerCoverSwipe } from '@/components/player/PlayerCoverSwipe';
 import { PlayerSeekBar } from '@/components/player/PlayerSeekBar';
+import { PurchaseGate } from '@/components/player/PurchaseGate';
 import { RateEntitySheet } from '@/components/ratings/RateEntitySheet';
 import { TrackRow } from '@/components/tracks/TrackRow';
 import { himbaColors, homeMedia } from '@/constants/theme';
@@ -303,6 +304,8 @@ export default function LectureScreen() {
         {actionError ? (
           <Text style={styles.actionErr}>{actionError}</Text>
         ) : null}
+
+        {needsPurchase && track ? <PurchaseGate track={track} /> : null}
 
         <PlayerSeekBar />
 
