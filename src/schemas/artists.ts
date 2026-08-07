@@ -23,6 +23,13 @@ export const updateArtistDisplayNameFormSchema = z.object({
   }),
 });
 
+/** KYC Stripe Connect Express — aligné Prisma ArtistKycStatus. */
+export const artistKycStatusSchema = z.enum([
+  'PENDING',
+  'RESTRICTED',
+  'VERIFIED',
+]);
+
 export const artistSchema = z.object({
   id: z.string(),
   userId: z.string(),
@@ -35,10 +42,32 @@ export const artistSchema = z.object({
   followersCount: z.number().int().nonnegative().optional(),
   /** Nombre d’artistes suivis par ce compte. */
   followingCount: z.number().int().nonnegative().optional(),
+  /** Présent sur GET /artists/:id (public). */
+  kycStatus: artistKycStatusSchema.optional(),
   createdAt: z.union([z.string(), z.coerce.date()]).optional(),
   updatedAt: z.union([z.string(), z.coerce.date()]).optional(),
   /** Présent sur GET /artists/:id. */
   ratingSummary: ratingSummarySchema.optional(),
+});
+
+/**
+ * GET /artists/me — profil artiste du user + flags KYC Stripe.
+ * `null` si pas encore de profil Artist.
+ */
+export const artistMeSchema = artistSchema.extend({
+  stripeAccountId: z.string().nullable(),
+  kycStatus: artistKycStatusSchema,
+  chargesEnabled: z.boolean(),
+  payoutsEnabled: z.boolean(),
+  detailsSubmitted: z.boolean(),
+  stripeRequirementsDue: z.array(z.string()),
+  needsOnboarding: z.boolean(),
+});
+
+/** POST /artists/me/stripe/onboarding-link */
+export const stripeOnboardingLinkSchema = z.object({
+  onboardingUrl: z.string().url(),
+  stripeAccountId: z.string().min(1),
 });
 
 export type BecomeArtistValues = z.infer<typeof becomeArtistSchema>;
@@ -47,3 +76,6 @@ export type UpdateArtistDisplayNameFormValues = z.infer<
   typeof updateArtistDisplayNameFormSchema
 >;
 export type Artist = z.infer<typeof artistSchema>;
+export type ArtistMe = z.infer<typeof artistMeSchema>;
+export type ArtistKycStatus = z.infer<typeof artistKycStatusSchema>;
+export type StripeOnboardingLink = z.infer<typeof stripeOnboardingLinkSchema>;

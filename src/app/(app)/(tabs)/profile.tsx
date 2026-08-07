@@ -5,6 +5,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ArtistKycCard } from '@/components/artists/ArtistKycCard';
 import { ArtistTermsGate } from '@/components/artists/ArtistTermsGate';
 import { ProfileAccordion } from '@/components/profile/ProfileAccordion';
 import { ProfileAvatar } from '@/components/profile/ProfileAvatar';
@@ -12,6 +13,7 @@ import { StudioLibrarySection } from '@/components/studio/StudioLibrarySection';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { himbaColors } from '@/constants/theme';
+import { useArtistStripeOnboarding } from '@/hooks/useArtistStripeOnboarding';
 import { canPublishMusic } from '@/lib/auth/canPublishMusic';
 import { getErrorMessage } from '@/lib/errors/apiError';
 import {
@@ -57,6 +59,12 @@ export default function ProfileScreen() {
     undefined,
     { skip: !user },
   );
+  const {
+    startOnboarding,
+    isLoading: kycLoading,
+    error: kycError,
+    clearError: clearKycError,
+  } = useArtistStripeOnboarding();
   const [openSection, setOpenSection] = useState<ProfileSection>(null);
 
   if (!user) {
@@ -70,6 +78,7 @@ export default function ProfileScreen() {
 
   const roleLabel = formatUserRoleLabel(user.role);
   const statusLabel = formatUserStatusLabel(user.status);
+  const showKycCard = Boolean(myArtist?.needsOnboarding);
 
   const toggle = (section: ProfileSection) => {
     setOpenSection((prev) => (prev === section ? null : section));
@@ -151,6 +160,25 @@ export default function ProfileScreen() {
             <Text className="text-[11px] font-semibold tracking-[2px] text-himba-mist">
               ARTISTE
             </Text>
+            {showKycCard && myArtist ? (
+              <ArtistKycCard
+                artist={myArtist}
+                loading={kycLoading}
+                error={kycError}
+                onStart={() => {
+                  clearKycError();
+                  void startOnboarding().then((ok) => {
+                    if (ok) {
+                      showToast({
+                        message:
+                          'Si Stripe a validé ton compte, tu pourras publier sous peu.',
+                        kind: 'info',
+                      });
+                    }
+                  });
+                }}
+              />
+            ) : null}
             <ProfileAccordion
               title={
                 myArtist ? 'Nom d’artiste' : 'Créer un profil artiste'
@@ -565,6 +593,8 @@ function BecomeArtistForm({ onDone }: { onDone: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [becomeArtist, { isLoading }] = useBecomeArtistMutation();
   const [fetchMe] = useLazyGetMeQuery();
+  const { startOnboarding, isLoading: kycLoading } =
+    useArtistStripeOnboarding();
 
   const {
     control,
@@ -592,8 +622,13 @@ function BecomeArtistForm({ onDone }: { onDone: () => void }) {
       }).unwrap();
       const me = await fetchMe(undefined).unwrap();
       dispatch(setCredentials({ user: me }));
-      showToast({ message: 'Profil artiste créé — ouvre le Studio' });
       onDone();
+      showToast({
+        message: 'Profil créé — complète ta vérification Stripe pour publier',
+        kind: 'info',
+      });
+      // Enchaîne l’Account Link KYC (l’utilisateur peut fermer le navigateur)
+      void startOnboarding();
     } catch (e) {
       const msg = getErrorMessage(e, 'Impossible de créer le profil artiste');
       setError(msg);
@@ -604,8 +639,8 @@ function BecomeArtistForm({ onDone }: { onDone: () => void }) {
   return (
     <View className="gap-3">
       <Text className="text-sm text-himba-mist">
-        Gratuit — indispensable pour publier. L’encaissement Stripe viendra
-        plus tard.
+        Gratuit. Après création, Stripe te demandera une vérification
+        d’identité (KYC) pour publier et recevoir tes ventes.
       </Text>
       <Controller
         control={control}
@@ -635,18 +670,19 @@ function BecomeArtistForm({ onDone }: { onDone: () => void }) {
       />
       <ArtistTermsGate
         accepted={accepted}
-        onAcceptedChange={(v) => {
-          setValue('acceptArtistTerms', v, {
-            shouldValidate: true,
-            shouldDirty: true,
-          });
-        }}
+        onAcceptedChange={(v) =>
+          setValue('acceptArtistTerms', v, { shouldValidate: true })
+        }
         error={errors.acceptArtistTerms?.message}
       />
-      {error ? <Text className="text-sm text-himba-alert">{error}</Text> : null}
+      {error ? (
+        <Text className="text-sm text-himba-alert" accessibilityRole="alert">
+          {error}
+        </Text>
+      ) : null}
       <Button
         label="Créer mon profil artiste"
-        loading={isLoading}
+        loading={isLoading || kycLoading}
         disabled={!accepted}
         onPress={onSubmit}
       />

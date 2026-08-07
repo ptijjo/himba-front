@@ -11,7 +11,8 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://himba.cellulenoire.fr"
+        "EXPO_PUBLIC_API_URL": "https://himba.cellulenoire.fr",
+        "EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY": "pk_test_51U1RdTFVlPCXPO11TFIxrnEh5PkpF1peo6c7oleVO7a4ZNRywsyJAfM7SdXI5zs0rA6aEeCKRmk5zgnlStggnj9O00COnlaBMw"
       }
     },
     "preview": {
@@ -20,7 +21,8 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://himba.cellulenoire.fr"
+        "EXPO_PUBLIC_API_URL": "https://himba.cellulenoire.fr",
+        "EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY": "pk_test_51U1RdTFVlPCXPO11TFIxrnEh5PkpF1peo6c7oleVO7a4ZNRywsyJAfM7SdXI5zs0rA6aEeCKRmk5zgnlStggnj9O00COnlaBMw"
       }
     },
     "production": {
@@ -28,7 +30,8 @@
         "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://himba.cellulenoire.fr"
+        "EXPO_PUBLIC_API_URL": "https://himba.cellulenoire.fr",
+        "EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY": "pk_test_51U1RdTFVlPCXPO11TFIxrnEh5PkpF1peo6c7oleVO7a4ZNRywsyJAfM7SdXI5zs0rA6aEeCKRmk5zgnlStggnj9O00COnlaBMw"
       }
     }
   },

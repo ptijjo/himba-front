@@ -2,7 +2,7 @@
   "expo": {
     "name": "Himba",
     "slug": "himba",
-    "version": "1.0.22",
+    "version": "1.0.23",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "himba",
@@ -22,7 +22,7 @@
     },
     "android": {
       "package": "fr.cellulenoire.himba",
-      "versionCode": 24,
+      "versionCode": 25,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#0B0618",
@@ -79,7 +79,8 @@
       ],
       "expo-document-picker",
       "expo-asset",
-      "@stripe/stripe-react-native"
+      "@stripe/stripe-react-native",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

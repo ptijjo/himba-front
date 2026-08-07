@@ -25,6 +25,8 @@ export default function AppGroupLayout() {
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: himbaColors.night } }}>
       <Stack.Screen name="(tabs)" />
+      {/* Retour deep link himba://artist/kyc après Account Link Stripe */}
+      <Stack.Screen name="artist/kyc" />
     </Stack>
   );
 }

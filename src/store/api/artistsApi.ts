@@ -1,7 +1,11 @@
 import {
+  artistMeSchema,
   artistSchema,
+  stripeOnboardingLinkSchema,
   type Artist,
+  type ArtistMe,
   type BecomeArtistValues,
+  type StripeOnboardingLink,
 } from '@/schemas/artists';
 import { baseApi } from '@/store/api/baseApi';
 
@@ -22,16 +26,34 @@ export const artistsApi = baseApi.injectEndpoints({
         return parsed.data;
       },
     }),
-    getMyArtist: build.query<Artist | null, void>({
+    getMyArtist: build.query<ArtistMe | null, void>({
       query: () => '/artists/me',
       providesTags: ['MyArtist'],
       transformResponse: (response: unknown) => {
         if (response == null) {
           return null;
         }
-        const parsed = artistSchema.safeParse(response);
+        const parsed = artistMeSchema.safeParse(response);
         if (!parsed.success) {
           throw new Error('Profil artiste invalide');
+        }
+        return parsed.data;
+      },
+    }),
+    /**
+     * 1. Crée le compte Stripe Express si besoin
+     * 2. Renvoie l’Account Link d’onboarding KYC (URL hébergée Stripe)
+     */
+    createStripeOnboardingLink: build.mutation<StripeOnboardingLink, void>({
+      query: () => ({
+        url: '/artists/me/stripe/onboarding-link',
+        method: 'POST',
+      }),
+      invalidatesTags: ['MyArtist'],
+      transformResponse: (response: unknown) => {
+        const parsed = stripeOnboardingLinkSchema.safeParse(response);
+        if (!parsed.success) {
+          throw new Error('Lien Stripe invalide');
         }
         return parsed.data;
       },
@@ -91,6 +113,8 @@ export const artistsApi = baseApi.injectEndpoints({
 export const {
   useBecomeArtistMutation,
   useGetMyArtistQuery,
+  useCreateStripeOnboardingLinkMutation,
   useGetArtistQuery,
   useUpdateArtistMutation,
+  useLazyGetMyArtistQuery,
 } = artistsApi;
