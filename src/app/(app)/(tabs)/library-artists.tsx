@@ -1,5 +1,6 @@
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
+import { useMemo } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -10,14 +11,21 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { himbaColors } from '@/constants/theme';
+import { useHiddenContentKeys } from '@/hooks/useHiddenContent';
+import { isArtistHidden } from '@/lib/reports/hiddenContent';
 import { openArtistProfile } from '@/lib/navigation/openProfile';
 import { useGetFollowsQuery } from '@/store/api/libraryApi';
 
 /**
- * Artistes suivis — liste bibliothèque.
+ * Artistes suivis — liste bibliothèque (hors artistes masqués localement).
  */
 export default function LibraryArtistsScreen() {
   const { data: follows = [], isLoading } = useGetFollowsQuery();
+  const hiddenKeys = useHiddenContentKeys();
+  const visibleFollows = useMemo(
+    () => follows.filter((f) => !isArtistHidden(f.artistId, hiddenKeys)),
+    [follows, hiddenKeys],
+  );
 
   return (
     <SafeAreaView className="flex-1 bg-himba-night" edges={['top']}>
@@ -43,17 +51,20 @@ export default function LibraryArtistsScreen() {
           </Text>
           <Text className="text-3xl font-bold text-himba-ink">Artistes</Text>
           <Text className="text-himba-mist">
-            {follows.length} artiste{follows.length > 1 ? 's' : ''}
+            {visibleFollows.length} artiste
+            {visibleFollows.length > 1 ? 's' : ''}
           </Text>
         </View>
 
         {isLoading ? (
           <ActivityIndicator color={himbaColors.ember} />
-        ) : follows.length === 0 ? (
-          <Text className="text-himba-mist">Aucun abonnement pour l’instant.</Text>
+        ) : visibleFollows.length === 0 ? (
+          <Text className="text-himba-mist">
+            Aucun abonnement pour l’instant.
+          </Text>
         ) : (
           <View className="gap-2">
-            {follows.map((f) => {
+            {visibleFollows.map((f) => {
               const name = f.artist?.displayName ?? 'Artiste';
               const avatar =
                 f.artist?.avatarUrl ?? f.artist?.coverUrl ?? null;

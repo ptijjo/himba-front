@@ -16,6 +16,7 @@ import { himbaColors } from '@/constants/theme';
 import { useArtistStripeOnboarding } from '@/hooks/useArtistStripeOnboarding';
 import { canPublishMusic } from '@/lib/auth/canPublishMusic';
 import { getErrorMessage } from '@/lib/errors/apiError';
+import { openPurchases } from '@/lib/navigation/openProfile';
 import {
   formatUserRoleLabel,
   formatUserStatusLabel,
@@ -28,22 +29,18 @@ import {
   type ChangeUsernameFormValues,
 } from '@/schemas/auth';
 import {
-  becomeArtistFormSchema,
   updateArtistDisplayNameFormSchema,
-  type BecomeArtistFormValues,
   type UpdateArtistDisplayNameFormValues,
 } from '@/schemas/artists';
 import { useAppDispatch, useAppSelector } from '@/store';
 import { useGetAlbumsQuery } from '@/store/api/albumsApi';
 import {
-  useBecomeArtistMutation,
   useGetMyArtistQuery,
   useUpdateArtistMutation,
 } from '@/store/api/artistsApi';
 import {
   useChangePasswordMutation,
   useLogoutMutation,
-  useLazyGetMeQuery,
   useUpdateMyUsernameMutation,
 } from '@/store/api/authApi';
 import { useGetTracksQuery } from '@/store/api/tracksApi';
@@ -55,10 +52,9 @@ export default function ProfileScreen() {
   const user = useAppSelector((s) => s.auth.user);
   const { showToast } = useToast();
   const [logout, { isLoading }] = useLogoutMutation();
-  const { data: myArtist, isLoading: loadingArtist } = useGetMyArtistQuery(
-    undefined,
-    { skip: !user },
-  );
+  const { data: myArtist } = useGetMyArtistQuery(undefined, {
+    skip: !user,
+  });
   const {
     startOnboarding,
     isLoading: kycLoading,
@@ -70,11 +66,6 @@ export default function ProfileScreen() {
   if (!user) {
     return null;
   }
-
-  const canBecomeArtist =
-    !loadingArtist &&
-    !myArtist &&
-    (user.role === 'LISTENER' || user.role === 'ADMIN');
 
   const roleLabel = formatUserRoleLabel(user.role);
   const statusLabel = formatUserStatusLabel(user.status);
@@ -153,14 +144,31 @@ export default function ProfileScreen() {
           >
             <ChangePasswordForm onDone={() => setOpenSection(null)} />
           </ProfileAccordion>
+
+          <Pressable
+            onPress={openPurchases}
+            accessibilityRole="button"
+            accessibilityLabel="Mes achats"
+            className="min-h-[52px] flex-row items-center gap-3 rounded-2xl bg-himba-earth px-4 py-3"
+          >
+            <View className="flex-1 gap-0.5">
+              <Text className="text-base font-bold text-himba-ink">
+                Mes achats
+              </Text>
+              <Text className="text-sm text-himba-mist" numberOfLines={1}>
+                Titres et albums achetés, avec la date
+              </Text>
+            </View>
+            <Text className="text-lg text-himba-ember">›</Text>
+          </Pressable>
         </View>
 
-        {myArtist || canBecomeArtist ? (
+        {myArtist ? (
           <View className="gap-2">
             <Text className="text-[11px] font-semibold tracking-[2px] text-himba-mist">
               ARTISTE
             </Text>
-            {showKycCard && myArtist ? (
+            {showKycCard ? (
               <ArtistKycCard
                 artist={myArtist}
                 loading={kycLoading}
@@ -180,26 +188,16 @@ export default function ProfileScreen() {
               />
             ) : null}
             <ProfileAccordion
-              title={
-                myArtist ? 'Nom d’artiste' : 'Créer un profil artiste'
-              }
-              subtitle={
-                myArtist
-                  ? myArtist.displayName
-                  : 'Publie des titres et albums'
-              }
+              title="Nom d’artiste"
+              subtitle={myArtist.displayName}
               open={openSection === 'artist'}
               onToggle={() => toggle('artist')}
             >
-              {myArtist ? (
-                <ChangeArtistNameForm
-                  artistId={myArtist.id}
-                  currentDisplayName={myArtist.displayName}
-                  onDone={() => setOpenSection(null)}
-                />
-              ) : (
-                <BecomeArtistForm onDone={() => setOpenSection(null)} />
-              )}
+              <ChangeArtistNameForm
+                artistId={myArtist.id}
+                currentDisplayName={myArtist.displayName}
+                onDone={() => setOpenSection(null)}
+              />
             </ProfileAccordion>
           </View>
         ) : null}
@@ -580,109 +578,6 @@ function ChangeArtistNameForm({
       <Button
         label="Enregistrer"
         loading={isLoading}
-        disabled={!accepted}
-        onPress={onSubmit}
-      />
-    </View>
-  );
-}
-
-function BecomeArtistForm({ onDone }: { onDone: () => void }) {
-  const dispatch = useAppDispatch();
-  const { showToast } = useToast();
-  const [error, setError] = useState<string | null>(null);
-  const [becomeArtist, { isLoading }] = useBecomeArtistMutation();
-  const [fetchMe] = useLazyGetMeQuery();
-  const { startOnboarding, isLoading: kycLoading } =
-    useArtistStripeOnboarding();
-
-  const {
-    control,
-    handleSubmit,
-    watch,
-    setValue,
-    formState: { errors },
-  } = useForm<BecomeArtistFormValues>({
-    resolver: zodResolver(becomeArtistFormSchema),
-    defaultValues: {
-      displayName: '',
-      bio: '',
-      acceptArtistTerms: false,
-    },
-  });
-
-  const accepted = watch('acceptArtistTerms');
-
-  const onSubmit = handleSubmit(async (values) => {
-    setError(null);
-    try {
-      await becomeArtist({
-        displayName: values.displayName,
-        bio: values.bio?.trim() ? values.bio : undefined,
-      }).unwrap();
-      const me = await fetchMe(undefined).unwrap();
-      dispatch(setCredentials({ user: me }));
-      onDone();
-      showToast({
-        message: 'Profil créé — complète ta vérification Stripe pour publier',
-        kind: 'info',
-      });
-      // Enchaîne l’Account Link KYC (l’utilisateur peut fermer le navigateur)
-      void startOnboarding();
-    } catch (e) {
-      const msg = getErrorMessage(e, 'Impossible de créer le profil artiste');
-      setError(msg);
-      showToast({ message: msg, kind: 'error' });
-    }
-  });
-
-  return (
-    <View className="gap-3">
-      <Text className="text-sm text-himba-mist">
-        Gratuit. Après création, Stripe te demandera une vérification
-        d’identité (KYC) pour publier et recevoir tes ventes.
-      </Text>
-      <Controller
-        control={control}
-        name="displayName"
-        render={({ field: { onChange, onBlur, value } }) => (
-          <Input
-            label="Nom d’artiste"
-            value={value}
-            onBlur={onBlur}
-            onChangeText={onChange}
-            error={errors.displayName?.message}
-          />
-        )}
-      />
-      <Controller
-        control={control}
-        name="bio"
-        render={({ field: { onChange, onBlur, value } }) => (
-          <Input
-            label="Bio (optionnel)"
-            value={value ?? ''}
-            onBlur={onBlur}
-            onChangeText={onChange}
-            error={errors.bio?.message}
-          />
-        )}
-      />
-      <ArtistTermsGate
-        accepted={accepted}
-        onAcceptedChange={(v) =>
-          setValue('acceptArtistTerms', v, { shouldValidate: true })
-        }
-        error={errors.acceptArtistTerms?.message}
-      />
-      {error ? (
-        <Text className="text-sm text-himba-alert" accessibilityRole="alert">
-          {error}
-        </Text>
-      ) : null}
-      <Button
-        label="Créer mon profil artiste"
-        loading={isLoading || kycLoading}
         disabled={!accepted}
         onPress={onSubmit}
       />

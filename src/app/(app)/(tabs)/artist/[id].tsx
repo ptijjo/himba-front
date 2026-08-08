@@ -19,6 +19,12 @@ import { TrackRow } from '@/components/tracks/TrackRow';
 import { Button } from '@/components/ui/Button';
 import { himbaColors } from '@/constants/theme';
 import { usePlayTrack } from '@/hooks/usePlayTrack';
+import {
+  useFilterHiddenTracks,
+  useHiddenContentActions,
+  useHiddenContentKeys,
+} from '@/hooks/useHiddenContent';
+import { isAlbumHidden } from '@/lib/reports/hiddenContent';
 import { getErrorMessage } from '@/lib/errors/apiError';
 import { openLecturePlayer } from '@/lib/navigation/openLecturePlayer';
 import { openAlbum, openArtistProfile } from '@/lib/navigation/openProfile';
@@ -45,6 +51,9 @@ export default function ArtistPublicProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const artistId = typeof id === 'string' ? id : '';
   const { playTrack } = usePlayTrack();
+  const { isArtistHidden } = useHiddenContentActions();
+  const hiddenKeys = useHiddenContentKeys();
+  const artistHidden = Boolean(artistId && isArtistHidden(artistId));
 
   const {
     data: artist,
@@ -83,8 +92,14 @@ export default function ArtistPublicProfileScreen() {
     [artistId, myFollows],
   );
 
-  const albums = albumsPage?.items ?? [];
-  const tracks = tracksPage?.items ?? [];
+  const albums = useMemo(
+    () =>
+      (albumsPage?.items ?? []).filter(
+        (a) => !isAlbumHidden({ id: a.id, artistId: a.artistId }, hiddenKeys),
+      ),
+    [albumsPage?.items, hiddenKeys],
+  );
+  const tracks = useFilterHiddenTracks(tracksPage?.items ?? []);
   const displayName = artist?.displayName ?? 'Artiste';
   const avatar = artist?.avatarUrl ?? publicUser?.avatarUrl ?? null;
   const cover = artist?.coverUrl ?? null;
@@ -129,6 +144,27 @@ export default function ArtistPublicProfileScreen() {
           <Text className="text-himba-ember">← Retour</Text>
         </Pressable>
         <Text className="px-4 text-himba-alert">Artiste introuvable</Text>
+      </SafeAreaView>
+    );
+  }
+
+  if (artistHidden) {
+    return (
+      <SafeAreaView className="flex-1 bg-himba-night" edges={['top']}>
+        <View className="gap-4 px-5 pt-4">
+          <Pressable onPress={() => router.back()} className="self-start">
+            <Text className="text-base font-semibold text-himba-ember">
+              ← Retour
+            </Text>
+          </Pressable>
+          <Text className="text-2xl font-bold text-himba-ink">
+            Contenu masqué
+          </Text>
+          <Text className="text-himba-mist">
+            Tu as choisi de masquer « {displayName} » et ses contenus sur cet
+            appareil.
+          </Text>
+        </View>
       </SafeAreaView>
     );
   }

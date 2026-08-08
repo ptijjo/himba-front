@@ -14,7 +14,22 @@ export const moneyEurosSchema = z.preprocess((val) => {
     const n = Number(val);
     return Number.isFinite(n) ? n : val;
   }
-  return val;
+  // Prisma Decimal / objets { toString } / { value }
+  if (typeof val === 'object') {
+    const asRecord = val as Record<string, unknown>;
+    if (typeof asRecord.value === 'string' || typeof asRecord.value === 'number') {
+      const n = Number(asRecord.value);
+      return Number.isFinite(n) ? n : null;
+    }
+    if (typeof (val as { toString?: () => string }).toString === 'function') {
+      const raw = String(val);
+      if (raw !== '[object Object]') {
+        const n = Number(raw);
+        return Number.isFinite(n) ? n : null;
+      }
+    }
+  }
+  return null;
 }, z.number().nullable());
 
 export const trackArtistSchema = z.object({

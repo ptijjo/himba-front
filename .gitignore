@@ -47,6 +47,10 @@ example
 /ios
 /android
 
+# Local Play signing (keystore + passwords) — never commit
+/credentials.json
+/credentials/
+
 # EAS / store artifacts (ne jamais zipper node_modules)
 *.aab
 *.apk

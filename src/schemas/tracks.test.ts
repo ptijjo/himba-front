@@ -31,6 +31,16 @@ describe('tracks schemas', () => {
     }
   });
 
+  it('parse price objet Decimal-like (bug reco API)', () => {
+    const parsed = recommendationsSchema.safeParse([
+      { ...track, price: { value: '1.99' } },
+    ]);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data[0]?.price).toBe(1.99);
+    }
+  });
+
   it('parse des recommandations (tableau)', () => {
     expect(recommendationsSchema.safeParse([track]).success).toBe(true);
     expect(recommendationsSchema.safeParse({ items: [] }).success).toBe(false);

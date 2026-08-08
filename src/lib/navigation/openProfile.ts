@@ -20,6 +20,11 @@ export function openFavorites(): void {
   router.push('/(app)/(tabs)/favorites' as Href);
 }
 
+/** Historique d’achats (titres + albums payants). */
+export function openPurchases(): void {
+  router.push('/(app)/(tabs)/purchases' as Href);
+}
+
 /** Albums aimés (bibliothèque). */
 export function openLibraryAlbums(): void {
   router.push('/(app)/(tabs)/library-albums' as Href);

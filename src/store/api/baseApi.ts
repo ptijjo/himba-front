@@ -14,6 +14,7 @@ import { getApiBaseUrl } from '@/constants/api';
 import { clearTokens, getAccessToken } from '@/lib/auth/tokenStorage';
 import { refreshAccessToken } from '@/lib/auth/refreshAccessToken';
 import { clearCredentials } from '@/store/slices/authSlice';
+import { clearHiddenContentState } from '@/store/slices/hiddenContentSlice';
 
 const rawBaseQuery: BaseQueryFn<
   string | FetchArgs,
@@ -64,6 +65,7 @@ const baseQueryWithReauth: BaseQueryFn<
     } else {
       await clearTokens();
       api.dispatch(clearCredentials());
+      api.dispatch(clearHiddenContentState());
     }
   }
 
@@ -88,6 +90,7 @@ export const baseApi = createApi({
     'Playlists',
     'Notifications',
     'Artists',
+    'Purchases',
   ],
   endpoints: () => ({}),
 });

@@ -20,6 +20,7 @@ import {
 import { baseApi } from '@/store/api/baseApi';
 import { notificationsApi } from '@/store/api/notificationsApi';
 import { clearCredentials } from '@/store/slices/authSlice';
+import { clearHiddenContentState } from '@/store/slices/hiddenContentSlice';
 
 export const authApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
@@ -106,6 +107,7 @@ export const authApi = baseApi.injectEndpoints({
         } finally {
           await clearTokens();
           dispatch(clearCredentials());
+          dispatch(clearHiddenContentState());
           dispatch(baseApi.util.resetApiState());
         }
       },

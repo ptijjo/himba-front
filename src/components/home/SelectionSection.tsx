@@ -4,10 +4,12 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AddToPlaylistModal } from '@/components/library/AddToPlaylistModal';
 import { RatingAverageBadge } from '@/components/ratings/RatingAverageBadge';
+import { ReportModal } from '@/components/reports/ReportModal';
 import { himbaColors, homeMedia } from '@/constants/theme';
 import { getErrorMessage } from '@/lib/errors/apiError';
 import { openArtistProfile } from '@/lib/navigation/openProfile';
 import type { Track } from '@/schemas/tracks';
+import type { ReportTargetType } from '@/schemas/reports';
 import { useGetArtistQuery } from '@/store/api/artistsApi';
 import {
   useAddFavoriteMutation,
@@ -51,6 +53,11 @@ export function SelectionSection({
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionOk, setActionOk] = useState<string | null>(null);
   const [playlistOpen, setPlaylistOpen] = useState(false);
+  const [reportTarget, setReportTarget] = useState<{
+    type: ReportTargetType;
+    id: string;
+    label: string;
+  } | null>(null);
 
   const isFollowing = useMemo(
     () => Boolean(artistId && follows.some((f) => f.artistId === artistId)),
@@ -128,6 +135,13 @@ export function SelectionSection({
         onAdded={(playlistName) => {
           setActionOk(`Ajouté à « ${playlistName} »`);
         }}
+      />
+      <ReportModal
+        visible={reportTarget !== null}
+        targetType={reportTarget?.type ?? 'TRACK'}
+        targetId={reportTarget?.id ?? ''}
+        targetLabel={reportTarget?.label}
+        onClose={() => setReportTarget(null)}
       />
       <Text className="text-[11px] font-semibold tracking-[2px] text-himba-mist">
         PROPOSITION ARTISTE
@@ -258,6 +272,43 @@ export function SelectionSection({
           ) : null}
           {actionError ? (
             <Text style={styles.feedbackErr}>{actionError}</Text>
+          ) : null}
+
+          {featured || artistId ? (
+            <View style={styles.reportRow}>
+              {featured ? (
+                <Pressable
+                  onPress={() =>
+                    setReportTarget({
+                      type: 'TRACK',
+                      id: featured.id,
+                      label: featured.title,
+                    })
+                  }
+                  accessibilityRole="button"
+                  accessibilityLabel="Signaler ce titre"
+                  hitSlop={8}
+                >
+                  <Text style={styles.reportLink}>Signaler le titre</Text>
+                </Pressable>
+              ) : null}
+              {artistId ? (
+                <Pressable
+                  onPress={() =>
+                    setReportTarget({
+                      type: 'ARTIST',
+                      id: artistId,
+                      label: artistName,
+                    })
+                  }
+                  accessibilityRole="button"
+                  accessibilityLabel="Signaler cet artiste"
+                  hitSlop={8}
+                >
+                  <Text style={styles.reportLink}>Signaler l’artiste</Text>
+                </Pressable>
+              ) : null}
+            </View>
           ) : null}
         </View>
       </View>
@@ -424,5 +475,17 @@ const styles = StyleSheet.create({
   feedbackErr: {
     fontSize: 12,
     color: himbaColors.alert,
+  },
+  reportRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+    marginTop: 4,
+  },
+  reportLink: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: himbaColors.mist,
+    textDecorationLine: 'underline',
   },
 });

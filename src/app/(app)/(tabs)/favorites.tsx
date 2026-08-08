@@ -16,6 +16,7 @@ import { TrackRow } from '@/components/tracks/TrackRow';
 import { Button } from '@/components/ui/Button';
 import { himbaColors } from '@/constants/theme';
 import { usePlayTrack } from '@/hooks/usePlayTrack';
+import { useFilterHiddenTracks } from '@/hooks/useHiddenContent';
 import { openLecturePlayer } from '@/lib/navigation/openLecturePlayer';
 import type { Track } from '@/schemas/tracks';
 import {
@@ -36,7 +37,7 @@ export default function FavoritesScreen() {
   const [playlistTrack, setPlaylistTrack] = useState<Track | null>(null);
   const [reportTrack, setReportTrack] = useState<Track | null>(null);
 
-  const tracks = useMemo((): Track[] => {
+  const tracksRaw = useMemo((): Track[] => {
     return favorites
       .map((fav) => fav.track)
       .filter((t): t is NonNullable<typeof t> => Boolean(t))
@@ -55,6 +56,7 @@ export default function FavoritesScreen() {
         }),
       );
   }, [favorites]);
+  const tracks = useFilterHiddenTracks(tracksRaw);
 
   const onPlayAll = () => {
     const first = tracks[0];

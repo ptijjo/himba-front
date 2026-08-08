@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 
 import { AddToPlaylistModal } from '@/components/library/AddToPlaylistModal';
+import { ReportModal } from '@/components/reports/ReportModal';
 import { himbaColors, homeMedia } from '@/constants/theme';
 import { getErrorMessage } from '@/lib/errors/apiError';
 import { openArtistProfile } from '@/lib/navigation/openProfile';
@@ -47,6 +48,7 @@ export function FollowingTab({
   const [activeArtistId, setActiveArtistId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [playlistTrack, setPlaylistTrack] = useState<Track | null>(null);
+  const [reportTrack, setReportTrack] = useState<Track | null>(null);
 
   const { data: favorites = [] } = useGetFavoritesQuery();
   const [addFavorite] = useAddFavoriteMutation();
@@ -105,6 +107,13 @@ export function FollowingTab({
         onAdded={(playlistName) => {
           setFeedback(`Ajouté à « ${playlistName} »`);
         }}
+      />
+      <ReportModal
+        visible={reportTrack !== null}
+        targetType="TRACK"
+        targetId={reportTrack?.id ?? ''}
+        targetLabel={reportTrack?.title}
+        onClose={() => setReportTrack(null)}
       />
       <View className="gap-2">
         <Text style={styles.eyebrow}>TON RÉSEAU</Text>
@@ -272,6 +281,14 @@ export function FollowingTab({
                       style={styles.iconBtn}
                     >
                       <Text style={styles.iconLabel}>＋</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => setReportTrack(track)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Signaler ${track.title}`}
+                      style={styles.iconBtn}
+                    >
+                      <Text style={styles.iconLabel}>⚑</Text>
                     </Pressable>
                   </View>
                 </View>

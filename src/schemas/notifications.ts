@@ -6,6 +6,7 @@ export const notificationTypeSchema = z.enum([
   'NEW_FOLLOWER',
   'REPORT_UPDATE',
   'REPORT_SANCTION',
+  'REPORT_CREATED',
 ]);
 
 export const reportStatusSchema = z.enum([
@@ -45,7 +46,7 @@ export const notificationDataSchema = z.object({
   sanction: z
     .enum(['WARNING', 'CONTENT_REMOVED', 'RESTRICTED', 'BANNED'])
     .optional(),
-  audience: z.enum(['reporter', 'target']).optional(),
+  audience: z.enum(['reporter', 'target', 'admin']).optional(),
 });
 
 export const notificationSchema = z.object({

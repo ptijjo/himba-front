@@ -17,6 +17,10 @@ import { TrackRow } from '@/components/tracks/TrackRow';
 import { Button } from '@/components/ui/Button';
 import { himbaColors } from '@/constants/theme';
 import { usePlayTrack } from '@/hooks/usePlayTrack';
+import {
+  useFilterHiddenTracks,
+  useHiddenContentActions,
+} from '@/hooks/useHiddenContent';
 import { getErrorMessage } from '@/lib/errors/apiError';
 import { openLecturePlayer } from '@/lib/navigation/openLecturePlayer';
 import { openArtistProfile } from '@/lib/navigation/openProfile';
@@ -37,6 +41,7 @@ export default function AlbumDetailScreen() {
   const albumId = typeof id === 'string' ? id : '';
   const { playTrack } = usePlayTrack();
   const { showToast } = useToast();
+  const { isAlbumHidden } = useHiddenContentActions();
 
   const {
     data: album,
@@ -57,7 +62,12 @@ export default function AlbumDetailScreen() {
     [albumFavorites, albumId],
   );
 
-  const tracks = useMemo((): Track[] => {
+  const albumHidden = Boolean(
+    album &&
+      isAlbumHidden({ id: album.id, artistId: album.artistId }),
+  );
+
+  const tracksRaw = useMemo((): Track[] => {
     if (!album?.tracks) {
       return [];
     }
@@ -69,6 +79,7 @@ export default function AlbumDetailScreen() {
         price: t.price ?? null,
         coverUrl: t.coverUrl ?? album.coverUrl ?? null,
         artistId: album.artistId,
+        albumId: album.id,
         durationMs: t.durationMs ?? null,
         artist: album.artist
           ? { id: album.artist.id, displayName: album.artist.displayName }
@@ -76,6 +87,7 @@ export default function AlbumDetailScreen() {
       }),
     );
   }, [album]);
+  const tracks = useFilterHiddenTracks(tracksRaw);
 
   const onToggleFavorite = async () => {
     if (!albumId) {
@@ -123,6 +135,31 @@ export default function AlbumDetailScreen() {
     return (
       <SafeAreaView className="flex-1 bg-himba-night items-center justify-center">
         <Text className="text-himba-mist">Album introuvable.</Text>
+      </SafeAreaView>
+    );
+  }
+
+  if (album && albumHidden) {
+    return (
+      <SafeAreaView className="flex-1 bg-himba-night" edges={['top']}>
+        <View className="gap-4 px-5 pt-4">
+          <Pressable
+            onPress={() => router.back()}
+            accessibilityRole="button"
+            accessibilityLabel="Retour"
+            className="self-start"
+          >
+            <Text className="text-base font-semibold text-himba-ember">
+              ← Retour
+            </Text>
+          </Pressable>
+          <Text className="text-2xl font-bold text-himba-ink">
+            Contenu masqué
+          </Text>
+          <Text className="text-himba-mist">
+            Tu as choisi de masquer « {album.title} » sur cet appareil.
+          </Text>
+        </View>
       </SafeAreaView>
     );
   }

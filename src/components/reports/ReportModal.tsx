@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 
 import { himbaColors } from '@/constants/theme';
+import { useHiddenContentActions } from '@/hooks/useHiddenContent';
 import { getErrorMessage } from '@/lib/errors/apiError';
 import {
   REPORT_REASON_OPTIONS,
@@ -28,8 +29,10 @@ type ReportModalProps = {
   onSubmitted?: () => void;
 };
 
+type Step = 'form' | 'askHide';
+
 /**
- * Formulaire signalement — motif + détails optionnels → POST /reports.
+ * Formulaire signalement → POST /reports → demande masquage local immédiat.
  */
 export function ReportModal({
   visible,
@@ -42,14 +45,17 @@ export function ReportModal({
   const [reason, setReason] = useState<ReportReason | null>(null);
   const [details, setDetails] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState(false);
+  const [step, setStep] = useState<Step>('form');
+  const [hiding, setHiding] = useState(false);
   const [createReport, { isLoading }] = useCreateReportMutation();
+  const { hideAndPersist } = useHiddenContentActions();
 
   const resetAndClose = () => {
     setReason(null);
     setDetails('');
     setError(null);
-    setDone(false);
+    setStep('form');
+    setHiding(false);
     onClose();
   };
 
@@ -66,12 +72,25 @@ export function ReportModal({
         reason,
         details: details.trim() || undefined,
       }).unwrap();
-      setDone(true);
       onSubmitted?.();
+      // Demander le masquage local (Oui → SecureStore + filtre listes)
+      setStep('askHide');
     } catch (e) {
       setError(getErrorMessage(e, 'Signalement impossible'));
     }
   };
+
+  const onHideYes = async () => {
+    setHiding(true);
+    try {
+      await hideAndPersist(targetType, targetId);
+    } finally {
+      setHiding(false);
+      resetAndClose();
+    }
+  };
+
+  const hidePrompt = hidePromptFor(targetType);
 
   return (
     <Modal
@@ -94,7 +113,9 @@ export function ReportModal({
         >
           <View className="mb-3 items-center">
             <View className="mb-3 h-1 w-10 rounded-full bg-himba-mist/50" />
-            <Text className="text-lg font-bold text-himba-ink">Signaler</Text>
+            <Text className="text-lg font-bold text-himba-ink">
+              {step === 'askHide' ? 'Masquer ce contenu ?' : 'Signaler'}
+            </Text>
             {targetLabel ? (
               <Text
                 className="mt-1 text-center text-sm text-himba-mist"
@@ -105,17 +126,41 @@ export function ReportModal({
             ) : null}
           </View>
 
-          {done ? (
-            <View className="gap-4 py-4">
-              <Text className="text-center text-base text-himba-ink">
+          {step === 'askHide' ? (
+            <View className="gap-4 py-2">
+              <Text className="text-center text-base leading-6 text-himba-ink">
                 Merci. On va examiner ce signalement.
               </Text>
+              <Text className="text-center text-sm leading-5 text-himba-mist">
+                {hidePrompt}
+              </Text>
               <Pressable
-                onPress={resetAndClose}
+                onPress={() => {
+                  void onHideYes();
+                }}
+                disabled={hiding}
                 accessibilityRole="button"
+                accessibilityLabel="Oui, masquer"
                 className="min-h-[48px] items-center justify-center rounded-2xl bg-himba-ember"
               >
-                <Text className="font-semibold text-himba-ink">Fermer</Text>
+                {hiding ? (
+                  <ActivityIndicator color={himbaColors.ink} />
+                ) : (
+                  <Text className="font-semibold text-himba-ink">
+                    Oui, masquer
+                  </Text>
+                )}
+              </Pressable>
+              <Pressable
+                onPress={resetAndClose}
+                disabled={hiding}
+                accessibilityRole="button"
+                accessibilityLabel="Non, ne pas masquer"
+                className="min-h-[48px] items-center justify-center rounded-2xl border border-himba-ochre/50"
+              >
+                <Text className="font-semibold text-himba-mist">
+                  Non, laisser visible
+                </Text>
               </Pressable>
             </View>
           ) : (
@@ -203,4 +248,21 @@ export function ReportModal({
       </Pressable>
     </Modal>
   );
+}
+
+function hidePromptFor(targetType: ReportTargetType): string {
+  switch (targetType) {
+    case 'TRACK':
+      return 'Veux-tu masquer ce titre sur ton appareil ? Tu ne le verras plus dans le catalogue ni les suggestions.';
+    case 'ALBUM':
+      return 'Veux-tu masquer cet album (et ses titres) sur ton appareil ?';
+    case 'ARTIST':
+      return 'Veux-tu masquer cet artiste et ses contenus sur ton appareil ?';
+    case 'USER':
+      return 'Veux-tu masquer ce profil sur ton appareil ?';
+    default: {
+      const _exhaustive: never = targetType;
+      return _exhaustive;
+    }
+  }
 }

@@ -57,6 +57,27 @@ describe('schemas/notifications', () => {
     expect(parsed.success).toBe(true);
   });
 
+  it('parse une notification REPORT_CREATED (admin)', () => {
+    const parsed = notificationSchema.safeParse({
+      id: 'n4',
+      userId: 'admin1',
+      type: 'REPORT_CREATED',
+      title: 'Nouveau signalement',
+      body: 'Titre signalé (Spam). À traiter dans la modération Himba.',
+      data: {
+        reportId: 'r1',
+        reportStatus: 'OPEN',
+        targetType: 'TRACK',
+        targetId: 't1',
+        reason: 'SPAM',
+        audience: 'admin',
+      },
+      readAt: null,
+      createdAt: '2026-08-08T10:00:00.000Z',
+    });
+    expect(parsed.success).toBe(true);
+  });
+
   it('rejette un type inconnu', () => {
     const parsed = notificationSchema.safeParse({
       id: 'n1',

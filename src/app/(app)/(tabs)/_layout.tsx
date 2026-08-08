@@ -100,6 +100,13 @@ export default function AppTabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="purchases"
+        options={{
+          href: null,
+          title: 'Mes achats',
+        }}
+      />
+      <Tabs.Screen
         name="library-albums"
         options={{
           href: null,

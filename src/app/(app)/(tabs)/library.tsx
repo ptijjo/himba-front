@@ -22,9 +22,12 @@ import { PlayerCoverSwipe } from '@/components/player/PlayerCoverSwipe';
 import { PlayerSeekBar } from '@/components/player/PlayerSeekBar';
 import { PurchaseGate } from '@/components/player/PurchaseGate';
 import { RateEntitySheet } from '@/components/ratings/RateEntitySheet';
+import { ReportModal } from '@/components/reports/ReportModal';
+import { TrackActionsSheet } from '@/components/tracks/TrackActionsSheet';
 import { TrackRow } from '@/components/tracks/TrackRow';
 import { himbaColors, homeMedia } from '@/constants/theme';
 import { usePlayTrack } from '@/hooks/usePlayTrack';
+import { useFilterHiddenTracks } from '@/hooks/useHiddenContent';
 import { getErrorMessage } from '@/lib/errors/apiError';
 import { openArtistProfile } from '@/lib/navigation/openProfile';
 import {
@@ -33,6 +36,7 @@ import {
 } from '@/lib/player/queueNavigation';
 import { formatPublicAverageLabel } from '@/lib/ratings/formatPublicAverage';
 import { useAudioPlayerControls } from '@/providers/AudioPlayerProvider';
+import type { Track } from '@/schemas/tracks';
 import { useAppDispatch, useAppSelector } from '@/store';
 import {
   useAddFavoriteMutation,
@@ -69,8 +73,10 @@ export default function LectureScreen() {
   const [playlistOpen, setPlaylistOpen] = useState(false);
   const [rateOpen, setRateOpen] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [menuTrack, setMenuTrack] = useState<Track | null>(null);
+  const [reportTrack, setReportTrack] = useState<Track | null>(null);
 
-  const queueTracks = queue;
+  const queueTracks = useFilterHiddenTracks(queue);
   const cover =
     track?.coverUrl ??
     queueTracks[0]?.coverUrl ??
@@ -261,7 +267,7 @@ export default function LectureScreen() {
           ) : null}
         </View>
 
-        {/* Actions secondaires : playlist + note */}
+        {/* Actions secondaires : playlist + note + signaler */}
         {trackId ? (
           <View style={styles.secondaryActions}>
             <Pressable
@@ -297,6 +303,18 @@ export default function LectureScreen() {
               >
                 {rateChip}
               </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                if (track) {
+                  setReportTrack(track);
+                }
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Signaler ce titre"
+              style={styles.secondaryBtn}
+            >
+              <Text style={styles.secondaryIcon}>⚑</Text>
             </Pressable>
           </View>
         ) : null}
@@ -419,12 +437,39 @@ export default function LectureScreen() {
                     }
                     void playTrack(item, { queue: queueTracks });
                   }}
+                  onMenuPress={setMenuTrack}
                 />
               );
             })}
           </View>
         )}
       </ScrollView>
+
+      <TrackActionsSheet
+        visible={menuTrack !== null}
+        title={menuTrack?.title}
+        subtitle={menuTrack?.artist?.displayName ?? menuTrack?.genre ?? undefined}
+        onClose={() => setMenuTrack(null)}
+        actions={
+          menuTrack
+            ? [
+                {
+                  key: 'report',
+                  label: 'Signaler ce titre',
+                  onPress: () => setReportTrack(menuTrack),
+                },
+              ]
+            : []
+        }
+      />
+
+      <ReportModal
+        visible={reportTrack !== null}
+        targetType="TRACK"
+        targetId={reportTrack?.id ?? ''}
+        targetLabel={reportTrack?.title}
+        onClose={() => setReportTrack(null)}
+      />
     </SafeAreaView>
   );
 }

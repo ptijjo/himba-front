@@ -65,8 +65,12 @@ export default function ActusScreen() {
       if (isUnread(item)) {
         void markRead(item.id);
       }
-      // Réponse signalement : lecture seule dans Actus (pas de navigation)
-      if (item.type === 'REPORT_UPDATE' || item.type === 'REPORT_SANCTION') {
+      // Signalements : lecture seule dans Actus (traitement dans himba-admin)
+      if (
+        item.type === 'REPORT_UPDATE' ||
+        item.type === 'REPORT_SANCTION' ||
+        item.type === 'REPORT_CREATED'
+      ) {
         return;
       }
       if (item.type === 'NEW_FOLLOWER' && item.data.followerId) {

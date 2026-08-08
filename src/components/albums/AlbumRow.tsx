@@ -20,6 +20,8 @@ type AlbumRowProps = {
   onPress: () => void;
   /** Affiche le cœur favori (défaut true). */
   showFavorite?: boolean;
+  /** Menu ⋮ (ex. signaler). */
+  onMenuPress?: () => void;
 };
 
 /**
@@ -32,6 +34,7 @@ export function AlbumRow({
   subtitle,
   onPress,
   showFavorite = true,
+  onMenuPress,
 }: AlbumRowProps) {
   const { showToast } = useToast();
   const { data: albumFavorites = [] } = useGetAlbumFavoritesQuery(undefined, {
@@ -92,6 +95,18 @@ export function AlbumRow({
             </Text>
           </View>
         </Pressable>
+
+        {onMenuPress ? (
+          <Pressable
+            onPress={onMenuPress}
+            accessibilityRole="button"
+            accessibilityLabel={`Options pour l’album ${title}`}
+            className="min-h-[44px] min-w-[44px] items-center justify-center"
+            hitSlop={8}
+          >
+            <Text className="text-xl text-himba-mist">⋮</Text>
+          </Pressable>
+        ) : null}
 
         {showFavorite ? (
           <Pressable

@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 
 import { AddToPlaylistModal } from '@/components/library/AddToPlaylistModal';
+import { ReportModal } from '@/components/reports/ReportModal';
+import { TrackActionsSheet } from '@/components/tracks/TrackActionsSheet';
 import { himbaColors, homeMedia } from '@/constants/theme';
 import { openArtistProfile } from '@/lib/navigation/openProfile';
 import type { Track } from '@/schemas/tracks';
@@ -41,6 +43,8 @@ export function ExploreTab({
   const [genreFilter, setGenreFilter] = useState<GenreFilterId>('all');
   const [feedback, setFeedback] = useState<string | null>(null);
   const [playlistTrack, setPlaylistTrack] = useState<Track | null>(null);
+  const [menuTrack, setMenuTrack] = useState<Track | null>(null);
+  const [reportTrack, setReportTrack] = useState<Track | null>(null);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -78,6 +82,37 @@ export function ExploreTab({
               : `Ajouté à ${playlistName}`,
           );
         }}
+      />
+
+      <TrackActionsSheet
+        visible={menuTrack !== null}
+        title={menuTrack?.title}
+        subtitle={menuTrack?.artist?.displayName ?? menuTrack?.genre ?? undefined}
+        onClose={() => setMenuTrack(null)}
+        actions={
+          menuTrack
+            ? [
+                {
+                  key: 'playlist',
+                  label: 'Ajouter à une playlist',
+                  onPress: () => setPlaylistTrack(menuTrack),
+                },
+                {
+                  key: 'report',
+                  label: 'Signaler ce titre',
+                  onPress: () => setReportTrack(menuTrack),
+                },
+              ]
+            : []
+        }
+      />
+
+      <ReportModal
+        visible={reportTrack !== null}
+        targetType="TRACK"
+        targetId={reportTrack?.id ?? ''}
+        targetLabel={reportTrack?.title}
+        onClose={() => setReportTrack(null)}
       />
 
       <View className="gap-2">
@@ -153,6 +188,7 @@ export function ExploreTab({
               setFeedback(null);
               setPlaylistTrack(track);
             }}
+            onMenu={() => setMenuTrack(track)}
           />
         ))}
       </View>
@@ -164,10 +200,12 @@ function ExploreTrackCard({
   track,
   onPlay,
   onAdd,
+  onMenu,
 }: {
   track: Track;
   onPlay: () => void;
   onAdd: () => void;
+  onMenu: () => void;
 }) {
   const artist =
     track.artist?.displayName ?? track.genre ?? 'Artiste Himba';
@@ -200,6 +238,14 @@ function ExploreTrackCard({
           </Pressable>
         </View>
         <View style={styles.cardActions}>
+          <Pressable
+            onPress={onMenu}
+            accessibilityRole="button"
+            accessibilityLabel={`Options pour ${track.title}`}
+            style={styles.roundBtn}
+          >
+            <Text style={styles.roundBtnLabel}>⋮</Text>
+          </Pressable>
           <Pressable
             onPress={onAdd}
             accessibilityRole="button"

@@ -4,6 +4,7 @@ import { useDispatch, useSelector, type TypedUseSelectorHook } from 'react-redux
 import { baseApi } from '@/store/api/baseApi';
 import { setupRtkListeners } from '@/store/setupRtkListeners';
 import { authReducer } from '@/store/slices/authSlice';
+import { hiddenContentReducer } from '@/store/slices/hiddenContentSlice';
 import { playerReducer } from '@/store/slices/playerSlice';
 
 import '@/store/api/albumsApi';
@@ -21,6 +22,7 @@ export const store = configureStore({
   reducer: {
     auth: authReducer,
     player: playerReducer,
+    hiddenContent: hiddenContentReducer,
     [baseApi.reducerPath]: baseApi.reducer,
   },
   middleware: (getDefaultMiddleware) =>

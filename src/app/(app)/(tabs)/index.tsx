@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   RefreshControl,
@@ -18,9 +18,17 @@ import { HomeHeroCarousel } from '@/components/home/HomeHeroCarousel';
 import { HomeTabs } from '@/components/home/HomeTabs';
 import { SelectionSection } from '@/components/home/SelectionSection';
 import { AtmosphereBackdrop } from '@/components/media/AtmosphereBackdrop';
+import { ReportModal } from '@/components/reports/ReportModal';
+import { TrackActionsSheet } from '@/components/tracks/TrackActionsSheet';
 import { TrackRow } from '@/components/tracks/TrackRow';
 import { himbaColors, homeMedia } from '@/constants/theme';
 import { usePlayTrack } from '@/hooks/usePlayTrack';
+import {
+  useFilterHiddenTracks,
+  useHiddenContentKeys,
+} from '@/hooks/useHiddenContent';
+import { isArtistHidden } from '@/lib/reports/hiddenContent';
+import type { Track } from '@/schemas/tracks';
 import { useAppSelector } from '@/store';
 import { useGetFollowsQuery } from '@/store/api/libraryApi';
 import {
@@ -45,6 +53,8 @@ export default function HomeScreen() {
     homeMedia.heroConcert,
   );
   const [refreshing, setRefreshing] = useState(false);
+  const [menuTrack, setMenuTrack] = useState<Track | null>(null);
+  const [reportTrack, setReportTrack] = useState<Track | null>(null);
   const { playTrack } = usePlayTrack();
 
   useEffect(() => {
@@ -84,11 +94,18 @@ export default function HomeScreen() {
     refetchOnMountOrArgChange: true,
   });
 
-  const catalog = tracksPage?.items ?? [];
+  const catalogRaw = tracksPage?.items ?? [];
+  const catalog = useFilterHiddenTracks(catalogRaw);
+  const recommendationsVisible = useFilterHiddenTracks(recommendations);
+  const hiddenKeys = useHiddenContentKeys();
+  const followsVisible = useMemo(
+    () => follows.filter((f) => !isArtistHidden(f.artistId, hiddenKeys)),
+    [follows, hiddenKeys],
+  );
   // Proposition artiste : reco si dispo ; hero = catalogue récent (API createdAt desc).
   const selectionTracks =
-    tab === 'pour-toi' && recommendations.length > 0
-      ? recommendations
+    tab === 'pour-toi' && recommendationsVisible.length > 0
+      ? recommendationsVisible
       : catalog;
 
   const showCoverBackdrop = tab === 'pour-toi';
@@ -199,6 +216,7 @@ export default function HomeScreen() {
                   onPress={(t) => {
                     void playTrack(t);
                   }}
+                  onMenuPress={setMenuTrack}
                 />
               ))}
               {loadingTracks ? (
@@ -210,7 +228,7 @@ export default function HomeScreen() {
 
         {tab === 'suivis' ? (
           <FollowingTab
-            follows={follows}
+            follows={followsVisible}
             tracks={catalog}
             loading={loadingFollows || loadingTracks}
             onPlayTrack={(t) => {
@@ -229,6 +247,32 @@ export default function HomeScreen() {
           />
         ) : null}
       </ScrollView>
+
+      <TrackActionsSheet
+        visible={menuTrack !== null}
+        title={menuTrack?.title}
+        subtitle={menuTrack?.artist?.displayName ?? menuTrack?.genre ?? undefined}
+        onClose={() => setMenuTrack(null)}
+        actions={
+          menuTrack
+            ? [
+                {
+                  key: 'report',
+                  label: 'Signaler ce titre',
+                  onPress: () => setReportTrack(menuTrack),
+                },
+              ]
+            : []
+        }
+      />
+
+      <ReportModal
+        visible={reportTrack !== null}
+        targetType="TRACK"
+        targetId={reportTrack?.id ?? ''}
+        targetLabel={reportTrack?.title}
+        onClose={() => setReportTrack(null)}
+      />
     </SafeAreaView>
   );
 }

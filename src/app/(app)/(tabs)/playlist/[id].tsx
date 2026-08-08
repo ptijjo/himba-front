@@ -17,6 +17,7 @@ import { TrackRow } from '@/components/tracks/TrackRow';
 import { Button } from '@/components/ui/Button';
 import { himbaColors } from '@/constants/theme';
 import { usePlayTrack } from '@/hooks/usePlayTrack';
+import { useFilterHiddenTracks } from '@/hooks/useHiddenContent';
 import { getErrorMessage } from '@/lib/errors/apiError';
 import { openLecturePlayer } from '@/lib/navigation/openLecturePlayer';
 import type { Track } from '@/schemas/tracks';
@@ -41,7 +42,7 @@ export default function PlaylistDetailScreen() {
     isError,
   } = useGetPlaylistQuery(playlistId, { skip: !playlistId });
 
-  const tracks = useMemo((): Track[] => {
+  const tracksRaw = useMemo((): Track[] => {
     if (!detail?.tracks) {
       return [];
     }
@@ -63,6 +64,7 @@ export default function PlaylistDetailScreen() {
         }),
       );
   }, [detail]);
+  const tracks = useFilterHiddenTracks(tracksRaw);
 
   const [showAdd, setShowAdd] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -74,7 +76,7 @@ export default function PlaylistDetailScreen() {
   const { data: catalogPage, isLoading: loadingCatalog } = useGetTracksQuery({
     limit: 50,
   });
-  const catalog = catalogPage?.items ?? [];
+  const catalog = useFilterHiddenTracks(catalogPage?.items ?? []);
   const [addPlaylistTrack, { isLoading: adding }] =
     useAddPlaylistTrackMutation();
   const [removePlaylistTrack] = useRemovePlaylistTrackMutation();
